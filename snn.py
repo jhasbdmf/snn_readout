@@ -63,15 +63,25 @@ def forward_pass(net, spike_data):
 def batch_accuracy(loader, net, num_steps):
     """Accuracy over a whole DataLoader using a rate code (spike counts)."""
     net.eval()
-    total, acc = 0, 0
+    total, correct_spike_rate, correct_max_mem  = 0, 0, 0
     with torch.no_grad():
         for data, targets in loader:
             data, targets = data.to(device), targets.to(device)
             spike_data = spikegen.rate(data, num_steps=num_steps)
-            spk_rec, _ = forward_pass(net, spike_data)
-            acc   += SF.accuracy_rate(spk_rec, targets) * spk_rec.size(1)
+            spk_rec, mem_rec = forward_pass(net, spike_data)
+            correct_spike_rate   += SF.accuracy_rate(spk_rec, targets) * spk_rec.size(1)
             total += spk_rec.size(1)
-    return acc / total
+
+            predictions_max_mem = torch.argmax(torch.max(mem_rec, dim=0).values, dim=1)
+            correct_max_mem += (predictions_max_mem == targets).sum().item()
+
+            #print (predictions_max_mem.shape)
+
+            #print (mem_rec.shape)
+
+            acc_spike_rate = correct_spike_rate / total
+            acc_max_mem = correct_max_mem/ total
+    return acc_spike_rate, acc_max_mem
 
 def train_snn (net,
                num_epochs,
@@ -114,14 +124,16 @@ def train_snn (net,
             loss_hist.append(loss_val.item())
 
             if counter % 50 == 0:
-                test_acc = batch_accuracy(test_loader, net, num_steps)
-                test_acc_hist.append(test_acc.item())
+                test_acc_spike_rate, test_acc_max_mem = batch_accuracy(test_loader, net, num_steps)
+                test_acc_hist.append(test_acc_spike_rate.item())
                 print(f"Iteration {counter:4d} | loss {loss_val.item():.3f} "
-                    f"| test acc {test_acc * 100:.2f}%")
+                    f"| test acc spk rate {test_acc_spike_rate * 100:.2f}% "
+                    f"| test acc max mem {test_acc_max_mem * 100:.2f}%"
+                )
             counter += 1
 
     # Final test accuracy and a plot of the training loss
-    final_acc = batch_accuracy(test_loader, net, num_steps)
+    final_acc, _ = batch_accuracy(test_loader, net, num_steps)
     print(f"Final test set accuracy: {final_acc * 100:.2f}%")
 
     plt.figure(figsize=(8, 4))
@@ -137,7 +149,7 @@ train_loader, val_loader, test_loader = load_data()
 
 # Network + simulation parameters
 num_inputs  = 64 * 64
-num_hidden  = 1000
+num_hidden  = 512
 num_outputs = 6
 
 num_steps = 25          # timesteps of the rate-coded input (raise for Colab GPU)
