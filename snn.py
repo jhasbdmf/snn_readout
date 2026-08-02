@@ -72,11 +72,12 @@ def batch_accuracy(loader, net, num_steps):
             correct_spike_rate   += SF.accuracy_rate(spk_rec, targets) * spk_rec.size(1)
             total += spk_rec.size(1)
 
+            #max membrane potential decoding
             predictions_max_mem = torch.argmax(torch.max(mem_rec, dim=0).values, dim=1)
-            #print ("asd", torch.mean(mem_rec, dim=0).shape)
+            #mean membrane potential decoding
             predictions_mean_mem = torch.argmax(torch.mean(mem_rec, dim=0), dim=1)
 
-            #print (mem_rec[-1].shape)
+            #last time step membrane potential decoding
             predictions_last_mem = torch.argmax(mem_rec[-1], dim=1)
 
             correct_max_mem += (predictions_max_mem == targets).sum().item()
@@ -99,13 +100,15 @@ def train_snn (net,
                num_epochs,
                train_loader,
                val_loader,
-               test_loader, 
+               test_loader,
+               decoding_method="spike_rate", 
                lr=1e-5,
                betas=(0.9, 0.999)):
         
     # TODO: add cross-entropy on output spike counts (rate code)
     #loss_fn   = nn.CrossEntropyLoss()
-    loss_fn   = SF.ce_rate_loss()        
+    #loss_fn_rate_encoding   = SF.ce_rate_loss()
+    #loss_cross_entropy = nn.CrossEntropyLoss()        
     optimizer = torch.optim.Adam(net.parameters(), lr=lr, betas=betas)
    
 
@@ -117,28 +120,38 @@ def train_snn (net,
             #print("CHECK THIS SHAPE:", data.shape)
             data, targets = data.to(device), targets.to(device)
 
-            # 1) TODO: rate-encode the images into a spike train with spikegen.rate
+            # 1) rate-encode the images into a spike train with spikegen.rate
             spike_data = spikegen.rate(data, num_steps)
 
-            # 2) TODO: run the forward pass over time (use forward_pass)
+            # 2) run the forward pass over time 
             net.train()
             #spk_rec = net(spike_data)
-            spk_rec, _ = forward_pass(net, spike_data)
+            spk_rec, mem_rec = forward_pass(net, spike_data)
 
-            # 3) TODO: compute the loss on the output spikes with loss_fn
-            loss_val = loss_fn(spk_rec, targets)
+            # 3) compute the loss on the output spikes with loss_fn
+            if decoding_method=="spike_rate":
+                loss = SF.ce_rate_loss()(spk_rec, targets)
+            elif decoding_method=="max_membrane_potential":
+                logits = torch.max(mem_rec, dim=0).values
+                loss = nn.CrossEntropyLoss()(logits, targets)
+            elif decoding_method=="mean_membrane_potential":
+                logits = torch.mean(mem_rec, dim=0)
+                loss = nn.CrossEntropyLoss()(logits, targets)
+            elif decoding_method=="last_membrane_potential":
+                logits = mem_rec[-1]
+                loss = nn.CrossEntropyLoss()(logits, targets)
 
             # 4) backward pass (surrogate gradients kick in here) + weight update
             optimizer.zero_grad()
-            loss_val.backward()
+            loss.backward()
             optimizer.step()
 
-            loss_hist.append(loss_val.item())
+            loss_hist.append(loss.item())
 
             if counter % 50 == 0:
                 test_acc_spike_rate, test_acc_max_mem, test_acc_mean_mem, test_acc_last_mem = batch_accuracy(test_loader, net, num_steps)
                 test_acc_hist.append(test_acc_spike_rate.item())
-                print(f"Iteration {counter:4d} | loss {loss_val.item():.3f} "
+                print(f"Iteration {counter:4d} | loss {loss.item():.3f} "
                     f"| test acc spk rate {test_acc_spike_rate * 100:.2f}% "
                     f"| test acc max mem {test_acc_max_mem * 100:.2f}%"
                     f"| test acc mean mem {test_acc_mean_mem * 100:.2f}%"
@@ -188,5 +201,6 @@ train_snn(net=net,
           train_loader=train_loader,
           val_loader=val_loader,
           test_loader=test_loader,
+          decoding_method="last_membrane_potential"
         )
 
