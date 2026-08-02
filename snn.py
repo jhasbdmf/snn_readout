@@ -116,12 +116,12 @@ def train_snn (net,
     optimizer = torch.optim.Adam(net.parameters(), lr=lr, betas=betas)
    
 
-    loss_hist, test_acc_hist = [], []
+    train_loss_hist, test_acc_hist = [], []
     counter = 0
 
     for epoch in range(num_epochs):
         #for data, targets in train_loader:
-        for data, targets in islice(train_loader, 128):
+        for data, targets in islice(train_loader, 5):
             
             #print("CHECK THIS SHAPE:", data.shape)
             data, targets = data.to(device), targets.to(device)
@@ -152,17 +152,28 @@ def train_snn (net,
             loss.backward()
             optimizer.step()
 
-            loss_hist.append(loss.item())
+            train_loss_hist.append(loss.item())
 
-            if counter % 50 == 0:
-                test_acc_spike_rate, test_acc_max_mem, test_acc_mean_mem, test_acc_last_mem = batch_accuracy(test_loader, net, num_steps)
-                test_acc_hist.append(test_acc_spike_rate.item())
-                print(f"Iteration {counter:4d} | loss {loss.item():.3f} "
-                    f"| test acc spk rate {test_acc_spike_rate * 100:.2f}% "
-                    f"| test acc max mem {test_acc_max_mem * 100:.2f}%"
-                    f"| test acc mean mem {test_acc_mean_mem * 100:.2f}%"
-                    f"| test acc last mem {test_acc_last_mem * 100:.2f}%"
-                )
+            test_acc_spike_rate, test_acc_max_mem, test_acc_mean_mem, test_acc_last_mem = batch_accuracy(test_loader, net, num_steps)
+
+            if decoding_method=="spike_rate":
+                test_acc_hist.append(test_acc_spike_rate)
+            elif decoding_method=="max_membrane_potential":
+                test_acc_hist.append(test_acc_max_mem)
+            elif decoding_method=="mean_membrane_potential":
+                test_acc_hist.append(test_acc_mean_mem)
+            elif decoding_method=="last_membrane_potential":
+                test_acc_hist.append(test_acc_last_mem)
+
+            #if counter % 50 == 0:
+                #test_acc_spike_rate, test_acc_max_mem, test_acc_mean_mem, test_acc_last_mem = batch_accuracy(test_loader, net, num_steps)
+                #test_acc_hist.append(test_acc_spike_rate.item())
+            print(f"Batch {counter:4d} | loss {loss.item():.3f} "
+                f"| test acc spk rate {test_acc_spike_rate * 100:.2f}% "
+                f"| test acc max mem {test_acc_max_mem * 100:.2f}%"
+                f"| test acc mean mem {test_acc_mean_mem * 100:.2f}%"
+                f"| test acc last mem {test_acc_last_mem * 100:.2f}%"
+            )
             counter += 1
 
     # Final test accuracy and a plot of the training loss
@@ -177,50 +188,52 @@ def train_snn (net,
 
     # 2. Create the timestamp for the filename
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    filename = f"figures/loss_curve_{timestamp}.png"
+    filename = f"figures/stats_{num_inputs}_{num_hidden}_{num_steps}_{beta}_{slope}_{lr}_{betas}_{timestamp}.png"
 
     hp_text = (
         f"Input dimension: {num_inputs}\n"
-        f"Hidden: {num_hidden}\n"
-        f"Outputs: {num_outputs}\n"
-        f"Steps: {num_steps}\n"
+        f"Hidden dimension: {num_hidden}\n"
+        #f"Outputs: {num_outputs}\n"
+        f"Number of time steps for rate encoding: {num_steps}\n"
         f"snn.Leaky MEMBRANE decay beta: {beta}\n"
-        f"Slope: 25\n"
-        f"LR: 1e-5\n"
-        f"Adam betas: (0.9, 0.999)"
+        f"Slope: {slope}\n"
+        f"LR: {lr}\n"
+        f"Adam betas: {betas}"
     )
 
-    # 4. Plotting
-    plt.figure(figsize=(10, 6))
-    plt.plot(loss_hist, color='blue', linewidth=1.5)
+    # 3. Create plot with twin axes
+    fig, ax1 = plt.subplots(figsize=(12, 6))
 
-    plt.title("Training Loss", fontsize=14)
-    plt.xlabel("Iteration", fontsize=12)
-    plt.ylabel("Loss", fontsize=12)
-    plt.grid(True, linestyle='--', alpha=0.6)
+    # Plot Loss on the first Y-axis (left)
+    color_loss = 'tab:red'
+    ax1.set_xlabel('Iteration')
+    ax1.set_ylabel('Loss', color=color_loss, fontsize=12)
+    ax1.plot(train_loss_hist, color=color_loss, label='Training Loss', linewidth=1.5)
+    ax1.tick_params(axis='y', labelcolor=color_loss)
+    ax1.grid(True, linestyle='--', alpha=0.5)
 
-    # Add hyperparameters as a text box in the upper right corner
-    plt.text(0.95, 0.95, hp_text, 
-            transform=plt.gca().transAxes, 
+    # Create a second Y-axis for Accuracy (right)
+    ax2 = ax1.twinx() 
+    color_acc = 'tab:blue'
+    ax2.set_ylabel('Test Accuracy', color=color_acc, fontsize=12)
+    ax2.plot(test_acc_hist, color=color_acc, label='Test Acc', linewidth=2)
+    ax2.tick_params(axis='y', labelcolor=color_acc)
+
+    plt.title("Training Loss and Test Accuracy", fontsize=14)
+
+    # Add hyperparams text box
+    plt.text(0.98, 0.95, hp_text, 
+            transform=ax1.transAxes, 
             fontsize=10, 
             verticalalignment='top', 
             horizontalalignment='right', 
-            bbox=dict(boxstyle='round', facecolor='white', alpha=0.5))
+            bbox=dict(boxstyle='round', facecolor='white', alpha=0.7))
 
-    # Save the figure
+    # Final layout and save
+    fig.tight_layout()
     plt.savefig(filename)
-    print(f"Figure saved to: {filename}")
-
-    # Show the plot
+    print(f"Saved results to: {filename}")
     plt.show()
-
-
-    #plt.figure(figsize=(8, 4))
-    #plt.plot(loss_hist)
-    #plt.title("Training loss")
-    #plt.xlabel("Iteration")
-    #plt.ylabel("Loss")
-    #plt.show()
 
 
 
@@ -232,8 +245,9 @@ num_hidden  = 512
 num_outputs = 6
 
 num_steps = 25          # timesteps of the rate-coded input (raise for Colab GPU)
-beta      = 0.9         # snn.Leaky MEMBRANE decay (NOT the surrogate steepness!)
-spike_grad = surrogate.fast_sigmoid(slope=25)   # slope = the lecture's beta
+beta      = 0.9
+slope = 25         # snn.Leaky MEMBRANE decay (NOT the surrogate steepness!)
+spike_grad = surrogate.fast_sigmoid(slope=slope)   # slope = the lecture's beta
 
 net = nn.Sequential(
     nn.Flatten(),
