@@ -63,7 +63,7 @@ def forward_pass(net, spike_data):
 def batch_accuracy(loader, net, num_steps):
     """Accuracy over a whole DataLoader using a rate code (spike counts)."""
     net.eval()
-    total, correct_spike_rate, correct_max_mem  = 0, 0, 0
+    total, correct_spike_rate, correct_max_mem, correct_mean_mem  = 0, 0, 0, 0
     with torch.no_grad():
         for data, targets in loader:
             data, targets = data.to(device), targets.to(device)
@@ -73,15 +73,22 @@ def batch_accuracy(loader, net, num_steps):
             total += spk_rec.size(1)
 
             predictions_max_mem = torch.argmax(torch.max(mem_rec, dim=0).values, dim=1)
+            #print ("asd", torch.mean(mem_rec, dim=0).shape)
+            predictions_mean_mem = torch.argmax(torch.mean(mem_rec, dim=0), dim=1)
+
             correct_max_mem += (predictions_max_mem == targets).sum().item()
+            correct_mean_mem += (predictions_mean_mem == targets).sum().item()
 
             #print (predictions_max_mem.shape)
 
             #print (mem_rec.shape)
 
             acc_spike_rate = correct_spike_rate / total
-            acc_max_mem = correct_max_mem/ total
-    return acc_spike_rate, acc_max_mem
+            acc_max_mem = correct_max_mem / total
+            acc_mean_mem = correct_mean_mem / total
+
+
+    return acc_spike_rate, acc_max_mem, acc_mean_mem
 
 def train_snn (net,
                num_epochs,
@@ -124,16 +131,17 @@ def train_snn (net,
             loss_hist.append(loss_val.item())
 
             if counter % 50 == 0:
-                test_acc_spike_rate, test_acc_max_mem = batch_accuracy(test_loader, net, num_steps)
+                test_acc_spike_rate, test_acc_max_mem, test_acc_mean_mem = batch_accuracy(test_loader, net, num_steps)
                 test_acc_hist.append(test_acc_spike_rate.item())
                 print(f"Iteration {counter:4d} | loss {loss_val.item():.3f} "
                     f"| test acc spk rate {test_acc_spike_rate * 100:.2f}% "
                     f"| test acc max mem {test_acc_max_mem * 100:.2f}%"
+                    f"| test acc mean mem {test_acc_mean_mem * 100:.2f}%"
                 )
             counter += 1
 
     # Final test accuracy and a plot of the training loss
-    final_acc, _ = batch_accuracy(test_loader, net, num_steps)
+    final_acc, _, _ = batch_accuracy(test_loader, net, num_steps)
     print(f"Final test set accuracy: {final_acc * 100:.2f}%")
 
     plt.figure(figsize=(8, 4))
