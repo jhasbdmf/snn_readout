@@ -49,11 +49,15 @@ def forward_pass(net, spike_data):
     Returns stacked output spikes: [num_steps, batch, num_outputs]
     """
     spk_rec = []
+    mem_rec = []
     utils.reset(net)                       # clear membrane states of every Leaky
     for step in range(spike_data.size(0)):
-        spk_out, _ = net(spike_data[step])
+        spk_out, mem_out = net(spike_data[step])
         spk_rec.append(spk_out)
-    return torch.stack(spk_rec)
+        mem_rec.append(mem_out)
+
+    return torch.stack(spk_rec), torch.stack(mem_rec)
+    #return torch.stack(spk_rec)
 
 
 def batch_accuracy(loader, net, num_steps):
@@ -64,7 +68,7 @@ def batch_accuracy(loader, net, num_steps):
         for data, targets in loader:
             data, targets = data.to(device), targets.to(device)
             spike_data = spikegen.rate(data, num_steps=num_steps)
-            spk_rec = forward_pass(net, spike_data)
+            spk_rec, _ = forward_pass(net, spike_data)
             acc   += SF.accuracy_rate(spk_rec, targets) * spk_rec.size(1)
             total += spk_rec.size(1)
     return acc / total
@@ -97,7 +101,7 @@ def train_snn (net,
             # 2) TODO: run the forward pass over time (use forward_pass)
             net.train()
             #spk_rec = net(spike_data)
-            spk_rec = forward_pass(net, spike_data)
+            spk_rec, _ = forward_pass(net, spike_data)
 
             # 3) TODO: compute the loss on the output spikes with loss_fn
             loss_val = loss_fn(spk_rec, targets)
