@@ -69,6 +69,64 @@ def batch_accuracy(loader, net, num_steps):
             total += spk_rec.size(1)
     return acc / total
 
+def train_snn (net,
+               num_epochs,
+               train_loader,
+               val_loader,
+               test_loader, 
+               lr=1e-5,
+               betas=(0.9, 0.999)):
+        
+    # TODO: add cross-entropy on output spike counts (rate code)
+    #loss_fn   = nn.CrossEntropyLoss()
+    loss_fn   = SF.ce_rate_loss()        
+    optimizer = torch.optim.Adam(net.parameters(), lr=lr, betas=betas)
+   
+
+    loss_hist, test_acc_hist = [], []
+    counter = 0
+
+    for epoch in range(num_epochs):
+        for data, targets in train_loader:
+            #print("CHECK THIS SHAPE:", data.shape)
+            data, targets = data.to(device), targets.to(device)
+
+            # 1) TODO: rate-encode the images into a spike train with spikegen.rate
+            spike_data = spikegen.rate(data, num_steps)
+
+            # 2) TODO: run the forward pass over time (use forward_pass)
+            net.train()
+            #spk_rec = net(spike_data)
+            spk_rec = forward_pass(net, spike_data)
+
+            # 3) TODO: compute the loss on the output spikes with loss_fn
+            loss_val = loss_fn(spk_rec, targets)
+
+            # 4) backward pass (surrogate gradients kick in here) + weight update
+            optimizer.zero_grad()
+            loss_val.backward()
+            optimizer.step()
+
+            loss_hist.append(loss_val.item())
+
+            if counter % 50 == 0:
+                test_acc = batch_accuracy(test_loader, net, num_steps)
+                test_acc_hist.append(test_acc.item())
+                print(f"Iteration {counter:4d} | loss {loss_val.item():.3f} "
+                    f"| test acc {test_acc * 100:.2f}%")
+            counter += 1
+
+    # Final test accuracy and a plot of the training loss
+    final_acc = batch_accuracy(test_loader, net, num_steps)
+    print(f"Final test set accuracy: {final_acc * 100:.2f}%")
+
+    plt.figure(figsize=(8, 4))
+    plt.plot(loss_hist)
+    plt.title("Training loss")
+    plt.xlabel("Iteration")
+    plt.ylabel("Loss")
+    plt.show()
+
 
 
 train_loader, val_loader, test_loader = load_data()
@@ -95,53 +153,10 @@ net = nn.Sequential(
 
 print(net)
 
+train_snn(net=net,
+          num_epochs=1,
+          train_loader=train_loader,
+          val_loader=val_loader,
+          test_loader=test_loader,
+        )
 
-# TODO: add cross-entropy on output spike counts (rate code)
-#loss_fn   = nn.CrossEntropyLoss()
-loss_fn   = SF.ce_rate_loss()        
-optimizer = torch.optim.Adam(net.parameters(), lr=1e-5, betas=(0.9, 0.999))
-num_epochs = 1
-
-loss_hist, test_acc_hist = [], []
-counter = 0
-
-for epoch in range(num_epochs):
-    for data, targets in train_loader:
-        #print("CHECK THIS SHAPE:", data.shape)
-        data, targets = data.to(device), targets.to(device)
-
-        # 1) TODO: rate-encode the images into a spike train with spikegen.rate
-        spike_data = spikegen.rate(data, num_steps)
-
-        # 2) TODO: run the forward pass over time (use forward_pass)
-        net.train()
-        #spk_rec = net(spike_data)
-        spk_rec = forward_pass(net, spike_data)
-
-        # 3) TODO: compute the loss on the output spikes with loss_fn
-        loss_val = loss_fn(spk_rec, targets)
-
-        # 4) backward pass (surrogate gradients kick in here) + weight update
-        optimizer.zero_grad()
-        loss_val.backward()
-        optimizer.step()
-
-        loss_hist.append(loss_val.item())
-
-        if counter % 50 == 0:
-            test_acc = batch_accuracy(test_loader, net, num_steps)
-            test_acc_hist.append(test_acc.item())
-            print(f"Iteration {counter:4d} | loss {loss_val.item():.3f} "
-                  f"| test acc {test_acc * 100:.2f}%")
-        counter += 1
-
-# Final test accuracy and a plot of the training loss
-final_acc = batch_accuracy(test_loader, net, num_steps)
-print(f"Final test set accuracy: {final_acc * 100:.2f}%")
-
-plt.figure(figsize=(8, 4))
-plt.plot(loss_hist)
-plt.title("Training loss")
-plt.xlabel("Iteration")
-plt.ylabel("Loss")
-plt.show()
