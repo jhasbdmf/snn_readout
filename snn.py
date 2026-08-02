@@ -34,6 +34,10 @@ from snntorch import utils
 
 
 from utils import load_data
+from itertools import islice
+
+import os
+from datetime import datetime
 
 
 
@@ -116,7 +120,9 @@ def train_snn (net,
     counter = 0
 
     for epoch in range(num_epochs):
-        for data, targets in train_loader:
+        #for data, targets in train_loader:
+        for data, targets in islice(train_loader, 128):
+            
             #print("CHECK THIS SHAPE:", data.shape)
             data, targets = data.to(device), targets.to(device)
 
@@ -161,14 +167,60 @@ def train_snn (net,
 
     # Final test accuracy and a plot of the training loss
     final_acc, _, _ , _ = batch_accuracy(test_loader, net, num_steps)
+
+
+
     print(f"Final test set accuracy: {final_acc * 100:.2f}%")
 
-    plt.figure(figsize=(8, 4))
-    plt.plot(loss_hist)
-    plt.title("Training loss")
-    plt.xlabel("Iteration")
-    plt.ylabel("Loss")
+    # 1. Create the "figures" directory if it doesn't exist
+    os.makedirs("figures", exist_ok=True)
+
+    # 2. Create the timestamp for the filename
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"figures/loss_curve_{timestamp}.png"
+
+    hp_text = (
+        f"Input dimension: {num_inputs}\n"
+        f"Hidden: {num_hidden}\n"
+        f"Outputs: {num_outputs}\n"
+        f"Steps: {num_steps}\n"
+        f"snn.Leaky MEMBRANE decay beta: {beta}\n"
+        f"Slope: 25\n"
+        f"LR: 1e-5\n"
+        f"Adam betas: (0.9, 0.999)"
+    )
+
+    # 4. Plotting
+    plt.figure(figsize=(10, 6))
+    plt.plot(loss_hist, color='blue', linewidth=1.5)
+
+    plt.title("Training Loss", fontsize=14)
+    plt.xlabel("Iteration", fontsize=12)
+    plt.ylabel("Loss", fontsize=12)
+    plt.grid(True, linestyle='--', alpha=0.6)
+
+    # Add hyperparameters as a text box in the upper right corner
+    plt.text(0.95, 0.95, hp_text, 
+            transform=plt.gca().transAxes, 
+            fontsize=10, 
+            verticalalignment='top', 
+            horizontalalignment='right', 
+            bbox=dict(boxstyle='round', facecolor='white', alpha=0.5))
+
+    # Save the figure
+    plt.savefig(filename)
+    print(f"Figure saved to: {filename}")
+
+    # Show the plot
     plt.show()
+
+
+    #plt.figure(figsize=(8, 4))
+    #plt.plot(loss_hist)
+    #plt.title("Training loss")
+    #plt.xlabel("Iteration")
+    #plt.ylabel("Loss")
+    #plt.show()
 
 
 
