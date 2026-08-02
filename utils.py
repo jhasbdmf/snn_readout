@@ -4,6 +4,10 @@ import torch
 from torch.utils.data import TensorDataset, DataLoader
 import torch.nn as nn
 
+import os
+from datetime import datetime
+
+
 
 def load_data():
 
@@ -33,7 +37,7 @@ def load_data():
 
     # 4. Show the entire figure once at the end
     plt.tight_layout()
-    plt.show()
+    #plt.show()
 
     # 2. Convert to PyTorch Tensors AND normalize pixels to [0.0, 1.0]
     # Labels must be torch.long for CrossEntropyLoss
@@ -66,3 +70,63 @@ def load_data():
     print(f"Test batches:  {len(test_loader)}")
 
     return train_loader, val_loader, test_loader
+
+
+
+def plot_stats (train_loss_hist, test_acc_hist, num_inputs, num_hidden, num_steps, beta, slope, lr, betas):
+
+    
+    
+
+    # 1. Create the "figures" directory if it doesn't exist
+    os.makedirs("figures", exist_ok=True)
+
+    # 2. Create the timestamp for the filename
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"figures/stats_{num_inputs}_{num_hidden}_{num_steps}_{beta}_{slope}_{lr}_{betas}_{timestamp}.png"
+
+    hp_text = (
+        f"Input dimension: {num_inputs}\n"
+        f"Hidden dimension: {num_hidden}\n"
+        #f"Outputs: {num_outputs}\n"
+        f"Number of time steps for rate encoding: {num_steps}\n"
+        f"snn.Leaky MEMBRANE decay beta: {beta}\n"
+        f"Slope: {slope}\n"
+        f"LR: {lr}\n"
+        f"Adam betas: {betas}"
+    )
+
+    # 3. Create plot with twin axes
+    fig, ax1 = plt.subplots(figsize=(12, 6))
+
+    # Plot Loss on the first Y-axis (left)
+    color_loss = 'tab:red'
+    ax1.set_xlabel('Iteration')
+    ax1.set_ylabel('Loss', color=color_loss, fontsize=12)
+    ax1.plot(train_loss_hist, color=color_loss, label='Training Loss', linewidth=1.5)
+    ax1.tick_params(axis='y', labelcolor=color_loss)
+    ax1.grid(True, linestyle='--', alpha=0.5)
+
+    # Create a second Y-axis for Accuracy (right)
+    ax2 = ax1.twinx() 
+    color_acc = 'tab:blue'
+    ax2.set_ylabel('Test Accuracy', color=color_acc, fontsize=12)
+    ax2.plot(test_acc_hist, color=color_acc, label='Test Acc', linewidth=2)
+    ax2.tick_params(axis='y', labelcolor=color_acc)
+
+    plt.title("Training Loss and Test Accuracy", fontsize=14)
+
+    # Add hyperparams text box
+    plt.text(0.98, 0.95, hp_text, 
+            transform=ax1.transAxes, 
+            fontsize=10, 
+            verticalalignment='top', 
+            horizontalalignment='right', 
+            bbox=dict(boxstyle='round', facecolor='white', alpha=0.7))
+
+    # Final layout and save
+    fig.tight_layout()
+    plt.savefig(filename)
+    print(f"Saved results to: {filename}")
+    plt.show()
+
