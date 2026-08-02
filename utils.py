@@ -71,9 +71,104 @@ def load_data():
 
     return train_loader, val_loader, test_loader
 
+import os
+import matplotlib.pyplot as plt
+from datetime import datetime
+
+def plot_stats(train_loss_hists,  # Now expected to be a list of 4 lists
+               test_acc_hists,
+               run_names,    # Now expected to be a list of 4 lists
+               num_inputs,
+               num_hidden,
+               num_steps,
+               beta,
+               slope,
+               lr,
+               betas):
+
+    # 1. Create the "figures" directory
+    os.makedirs("figures", exist_ok=True)
+
+    # 2. Timestamp and filename
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    #filename = f"figures/stats_comp_{timestamp}.png"
+    filename = f"figures/stats_{num_inputs}_{num_hidden}_{num_steps}_{beta}_{slope}_{lr}_{betas}_{timestamp}.png"
+    
+
+    hp_text = (
+        f"Input dim: {num_inputs}\n"
+        f"Hidden dim: {num_hidden}\n"
+        f"Steps: {num_steps}\n"
+        f"Beta: {beta}\n"
+        f"Slope: {slope}\n"
+        f"LR: {lr}\n"
+        f"Adam betas: {betas}"
+    )
+
+    # 3. Define colors for the 4 different runs
+    # Using distinct colors for the 4 different experiments
+    colors = ['tab:red', 'tab:blue', 'tab:green', 'tab:orange']
+
+    fig, ax1 = plt.subplots(figsize=(12, 7))
+
+    # Plotting loop
+    for i in range(len(train_loss_hists)):
+        color = colors[i % len(colors)]
+
+      
+        
+        # Plot Loss (Solid lines)
+        ax1.plot(train_loss_hists[i], color=color, 
+                 linestyle='-', linewidth=1.5, 
+                 label=f'{run_names[i]} loss')
+        
+        # Plot Accuracy on the second axis (Dashed lines)
+        # We create ax2 inside the loop or just once outside
+        if i == 0:
+            ax2 = ax1.twinx()
+
+        
+        ax2.plot(test_acc_hists[i], color=color, 
+                linestyle='--', linewidth=2, 
+                label=f'{run_names[i]} acc')
+
+    # Formatting Axes
+    ax1.set_xlabel('Iteration', fontsize=12)
+    ax1.set_ylabel('Loss', color='black', fontsize=12)
+    ax2.set_ylabel('Test Accuracy', color='black', fontsize=12)
+    
+    # Combine legends from both axes
+    lines, labels = ax1.get_legend_handles_labels()
+    lines2, labels2 = ax2.get_legend_handles_labels()
+    ax1.legend(lines + lines2, labels + labels2, loc='lower right', fontsize=8)
+
+    plt.title("Comparison of 4 Runs: Training Loss vs Test Accuracy", fontsize=14)
+    ax1.grid(True, linestyle='--', alpha=0.5)
+
+    # Hyperparams text box
+    plt.text(0.98, 0.95, hp_text, 
+            transform=ax1.transAxes, 
+            fontsize=10, 
+            verticalalignment='top', 
+            horizontalalignment='right', 
+            bbox=dict(boxstyle='round', facecolor='white', alpha=0.7))
+
+    fig.tight_layout()
+    plt.savefig(filename)
+    print(f"Saved comparison results to: {filename}")
+    # plt.show()
 
 
-def plot_stats (train_loss_hist, test_acc_hist, num_inputs, num_hidden, num_steps, beta, slope, lr, betas):
+
+def plot_stats1 (train_loss_hist,
+                test_acc_hist,
+                num_inputs,
+                num_hidden,
+                num_steps,
+                beta,
+                slope,
+                lr,
+                betas):
 
     
     
@@ -128,5 +223,5 @@ def plot_stats (train_loss_hist, test_acc_hist, num_inputs, num_hidden, num_step
     fig.tight_layout()
     plt.savefig(filename)
     print(f"Saved results to: {filename}")
-    plt.show()
+    #plt.show()
 

@@ -181,16 +181,8 @@ def train_snn (net,
 
     print(f"Final test set accuracy: {final_acc * 100:.2f}%")
 
-    plot_stats(train_loss_hist=train_loss_hist,
-               test_acc_hist=test_acc_hist,
-               num_inputs=num_inputs,
-               num_hidden=num_hidden,
-               num_steps=num_steps,
-               beta=beta,
-               slope=slope,
-               lr=lr,
-               betas=betas
-               )
+    return train_loss_hist, test_acc_hist
+
 
 
 
@@ -206,6 +198,9 @@ beta      = 0.9
 slope = 25         # snn.Leaky MEMBRANE decay (NOT the surrogate steepness!)
 spike_grad = surrogate.fast_sigmoid(slope=slope)   # slope = the lecture's beta
 
+lr=1e-5
+betas = (0.9, 0.999)
+
 net = nn.Sequential(
     nn.Flatten(),
     nn.Linear(num_inputs, num_hidden),
@@ -219,11 +214,61 @@ net = nn.Sequential(
 
 print(net)
 
-train_snn(net=net,
+rate_train_loss_hist, rate_test_acc_hist = train_snn(net=net,
           num_epochs=1,
           train_loader=train_loader,
           val_loader=val_loader,
           test_loader=test_loader,
-          decoding_method="last_membrane_potential"
+          lr=lr,
+          betas=betas
         )
+
+max_train_loss_hist, max_test_acc_hist = train_snn(net=net,
+          num_epochs=1,
+          train_loader=train_loader,
+          val_loader=val_loader,
+          test_loader=test_loader,
+          decoding_method="max_membrane_potential",
+          lr=lr,
+          betas=betas
+        )
+
+mean_train_loss_hist, mean_test_acc_hist = train_snn(net=net,
+          num_epochs=1,
+          train_loader=train_loader,
+          val_loader=val_loader,
+          test_loader=test_loader,
+          decoding_method="mean_membrane_potential",
+          lr=lr,
+          betas=betas
+        )
+
+last_train_loss_hist, last_test_acc_hist = train_snn(net=net,
+          num_epochs=1,
+          train_loader=train_loader,
+          val_loader=val_loader,
+          test_loader=test_loader,
+          decoding_method="last_membrane_potential",
+          lr=lr,
+          betas=betas
+        )
+
+
+train_loss_hists = [rate_train_loss_hist, max_train_loss_hist, mean_train_loss_hist, last_train_loss_hist]
+test_acc_hists = [rate_test_acc_hist, max_test_acc_hist, mean_test_acc_hist, last_test_acc_hist]
+run_names = ["Spike rate", "Max mem pot", "Mean mem pot", "Last mem pot"]
+
+
+plot_stats(train_loss_hists=train_loss_hists,
+            test_acc_hists=test_acc_hists,
+            run_names=run_names,
+            num_inputs=num_inputs,
+            num_hidden=num_hidden,
+            num_steps=num_steps,
+            beta=beta,
+            slope=slope,
+            lr=lr,
+            betas=betas,
+            )
+
 
