@@ -161,7 +161,7 @@ def train_snn (net,
 
     for epoch in range(num_epochs):
         #for data, targets in train_loader:
-        for data, targets in islice(train_loader, 20):
+        for data, targets in islice(train_loader, 3):
             
             #print("CHECK THIS SHAPE:", data.shape)
             data, targets = data.to(device), targets.to(device)
@@ -318,7 +318,7 @@ for readout in readouts:
     """
     #print(net)
 
-    net = LIF_SNN().to(device)
+    net = LIF_SNN(hidden_dim=num_hidden, n_hidden=n_hidden).to(device)
     
     # 3. Load the exact same initial weights
     net.load_state_dict(initial_state)
