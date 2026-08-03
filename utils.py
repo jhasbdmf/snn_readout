@@ -78,7 +78,80 @@ import os
 import matplotlib.pyplot as plt
 from datetime import datetime
 
-def plot_stats(train_loss_hists,  # Now expected to be a list of 4 lists
+def plot_stats(train_loss_hists,  
+               test_acc_hists,
+               run_names,    
+               num_inputs,
+               num_hidden,
+               num_steps,
+               beta,
+               slope,
+               lr,
+               betas):
+
+    # 1. Create the "figures" directory
+    os.makedirs("figures", exist_ok=True)
+
+    # 2. Timestamp and filename
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"figures/stats_{num_inputs}_{num_hidden}_{num_steps}_{beta}_{slope}_{lr}_{betas}_{timestamp}.png"
+    
+    hp_text = (
+        f"Input dim: {num_inputs}  |  Hidden dim: {num_hidden}  |  Steps: {num_steps}  |  "
+        f"Beta: {beta}  |  Slope: {slope}  |  LR: {lr}  |  Adam betas: {betas}"
+    )
+
+    # 3. Define colors for the 4 different runs
+    colors = ['tab:red', 'tab:blue', 'tab:green', 'tab:orange']
+
+    fig, ax1 = plt.subplots(figsize=(12, 7))
+
+    # Plotting loop
+    for i in range(len(train_loss_hists)):
+        color = colors[i % len(colors)]
+        
+        # Plot Loss (Solid lines)
+        ax1.plot(train_loss_hists[i], color=color, 
+                 linestyle='-', linewidth=1.5, 
+                 label=f'{run_names[i]} loss')
+        
+        # Plot Accuracy on the second axis (Dashed lines)
+        if i == 0:
+            ax2 = ax1.twinx()
+
+        ax2.plot(test_acc_hists[i], color=color, 
+                linestyle='--', linewidth=2, 
+                label=f'{run_names[i]} acc')
+
+    # Formatting Axes
+    ax1.set_xlabel('Iteration', fontsize=12)
+    ax1.set_ylabel('Loss', color='black', fontsize=12)
+    ax2.set_ylabel('Test Accuracy', color='black', fontsize=12)
+    
+    # Combine legends and place in the upper-right (now free!)
+    lines, labels = ax1.get_legend_handles_labels()
+    lines2, labels2 = ax2.get_legend_handles_labels()
+    ax1.legend(lines + lines2, labels + labels2, loc='upper left', fontsize=8)
+
+    plt.title("Comparison of 4 Runs: Training Loss vs Test Accuracy", fontsize=14)
+    ax1.grid(True, linestyle='--', alpha=0.5)
+
+    # Make room at the bottom of the figure for the hyperparameter text box
+    fig.subplots_adjust(bottom=0.18)
+
+    # Hyperparams text box placed centrally at the bottom
+    fig.text(0.5, 0.02, hp_text, 
+            fontsize=9, 
+            verticalalignment='bottom', 
+            horizontalalignment='center', 
+            bbox=dict(boxstyle='round', facecolor='white', alpha=0.8))
+
+    fig.tight_layout(rect=[0, 0.05, 1, 1])
+    plt.savefig(filename)
+    print(f"Saved comparison results to: {filename}")
+    # plt.show()
+
+def plot_stats1(train_loss_hists,  # Now expected to be a list of 4 lists
                test_acc_hists,
                run_names,    # Now expected to be a list of 4 lists
                num_inputs,
@@ -143,7 +216,7 @@ def plot_stats(train_loss_hists,  # Now expected to be a list of 4 lists
     # Combine legends from both axes
     lines, labels = ax1.get_legend_handles_labels()
     lines2, labels2 = ax2.get_legend_handles_labels()
-    ax1.legend(lines + lines2, labels + labels2, loc='lower right', fontsize=8)
+    ax1.legend(lines + lines2, labels + labels2, loc='lower left', fontsize=8)
 
     plt.title("Comparison of 4 Runs: Training Loss vs Test Accuracy", fontsize=14)
     ax1.grid(True, linestyle='--', alpha=0.5)
