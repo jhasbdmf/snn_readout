@@ -190,7 +190,7 @@ train_loader, val_loader, test_loader = load_data()
 
 # Network + simulation parameters
 num_inputs  = 64 * 64
-num_hidden  = 512
+num_hidden  = 128
 num_outputs = 6
 
 num_steps = 25          # timesteps of the rate-coded input (raise for Colab GPU)
@@ -201,67 +201,46 @@ spike_grad = surrogate.fast_sigmoid(slope=slope)   # slope = the lecture's beta
 lr=1e-5
 betas = (0.9, 0.999)
 
-net = nn.Sequential(
-    nn.Flatten(),
-    nn.Linear(num_inputs, num_hidden),
-    snn.Leaky(beta=beta, spike_grad=spike_grad, init_hidden=True),
-    nn.Linear(num_hidden, num_outputs),
-    snn.Leaky(beta=beta, spike_grad=spike_grad, init_hidden=True, output=True)
+readouts = ["spike_rate", "max_membrane_potential", "mean_membrane_potential", "last_membrane_potential"]
+
+
+train_loss_hists = []
+test_acc_hists = []
+
+for readout in readouts:
+
+    net = nn.Sequential(
+        nn.Flatten(),
+        nn.Linear(num_inputs, num_hidden),
+        snn.Leaky(beta=beta, spike_grad=spike_grad, init_hidden=True),
+        nn.Linear(num_hidden, num_outputs),
+        snn.Leaky(beta=beta, spike_grad=spike_grad, init_hidden=True, output=True)
     # TODO: fill in the layers
 
 
-).to(device)
+    ).to(device)
 
-print(net)
+    #print(net)
 
-rate_train_loss_hist, rate_test_acc_hist = train_snn(net=net,
-          num_epochs=1,
-          train_loader=train_loader,
-          val_loader=val_loader,
-          test_loader=test_loader,
-          lr=lr,
-          betas=betas
-        )
+    train_loss_hist, test_acc_hist = train_snn(net=net,
+            num_epochs=1,
+            train_loader=train_loader,
+            val_loader=val_loader,
+            test_loader=test_loader,
+            lr=lr,
+            betas=betas
+            )
 
-max_train_loss_hist, max_test_acc_hist = train_snn(net=net,
-          num_epochs=1,
-          train_loader=train_loader,
-          val_loader=val_loader,
-          test_loader=test_loader,
-          decoding_method="max_membrane_potential",
-          lr=lr,
-          betas=betas
-        )
+    train_loss_hists.append(train_loss_hist)
+    test_acc_hists.append(test_acc_hist)
 
-mean_train_loss_hist, mean_test_acc_hist = train_snn(net=net,
-          num_epochs=1,
-          train_loader=train_loader,
-          val_loader=val_loader,
-          test_loader=test_loader,
-          decoding_method="mean_membrane_potential",
-          lr=lr,
-          betas=betas
-        )
-
-last_train_loss_hist, last_test_acc_hist = train_snn(net=net,
-          num_epochs=1,
-          train_loader=train_loader,
-          val_loader=val_loader,
-          test_loader=test_loader,
-          decoding_method="last_membrane_potential",
-          lr=lr,
-          betas=betas
-        )
-
-
-train_loss_hists = [rate_train_loss_hist, max_train_loss_hist, mean_train_loss_hist, last_train_loss_hist]
-test_acc_hists = [rate_test_acc_hist, max_test_acc_hist, mean_test_acc_hist, last_test_acc_hist]
-run_names = ["Spike rate", "Max mem pot", "Mean mem pot", "Last mem pot"]
+    
 
 
 plot_stats(train_loss_hists=train_loss_hists,
             test_acc_hists=test_acc_hists,
-            run_names=run_names,
+            #run_names=run_names,
+            run_names=readouts,
             num_inputs=num_inputs,
             num_hidden=num_hidden,
             num_steps=num_steps,
