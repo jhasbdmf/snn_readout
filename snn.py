@@ -161,7 +161,7 @@ def train_snn (net,
 
     for epoch in range(num_epochs):
         #for data, targets in train_loader:
-        for data, targets in islice(train_loader, 10):
+        for data, targets in islice(train_loader, 20):
             
             #print("CHECK THIS SHAPE:", data.shape)
             data, targets = data.to(device), targets.to(device)
@@ -280,7 +280,8 @@ train_loader, val_loader, test_loader = load_data()
 
 # Network + simulation parameters
 num_inputs  = 64 * 64
-num_hidden  = 128
+num_hidden  = 64
+n_hidden = 1
 num_outputs = 6
 
 num_steps = 25          # timesteps of the rate-coded input (raise for Colab GPU)
@@ -300,7 +301,7 @@ test_acc_hists = []
 
 
 
-baseline_net = LIF_SNN()
+baseline_net = LIF_SNN(hidden_dim=num_hidden, n_hidden=n_hidden)
 initial_state = baseline_net.state_dict()
 
 
