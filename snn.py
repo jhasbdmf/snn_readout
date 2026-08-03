@@ -44,7 +44,7 @@ torch.manual_seed(42)
 device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
 print("Using device:", device)
 
-def forward_pass(net, spike_data):
+def forward_pass1(net, spike_data):
     """Run the network over time on a pre-encoded spike train.
 
     spike_data: [num_steps, batch, 1, 28, 28] (from spikegen.rate)
@@ -62,6 +62,38 @@ def forward_pass(net, spike_data):
     #return torch.stack(spk_rec)
 
 
+def forward_pass(net, spike_data):
+    utils.reset(net)
+    
+    final_spk_rec = []
+    # Dictionaries to hold lists over time
+    # Key: layer_index, Value: list of tensors over time
+    inter_spk_rec = {i: [] for i in range(len(net.layers) // 2)} 
+    inter_mem_rec = {i: [] for i in range(len(net.layers) // 2)}
+
+    for step in range(spike_data.size(0)):
+        # Unpack the 3 return values
+        spk_out, all_spikes, all_mems = net(spike_data[step])
+        
+        final_spk_rec.append(spk_out)
+        
+        # Store intermediate spikes and membranes for this time step
+        for i in range(len(all_spikes)):
+            inter_spk_rec[i].append(all_spikes[i])
+            inter_mem_rec[i].append(all_mems[i])
+
+    # Stack into tensors: [num_steps, batch, dim]
+    final_spikes = torch.stack(final_spk_rec)
+    
+    for i in inter_spk_rec:
+        inter_spk_rec[i] = torch.stack(inter_spk_rec[i])
+        inter_mem_rec[i] = torch.stack(inter_mem_rec[i])
+
+    last_layer_idx = len(inter_mem_rec) - 1
+
+    return final_spikes, inter_spk_rec, inter_mem_rec[last_layer_idx]
+
+
 def batch_accuracy(loader, net, num_steps):
     """Accuracy over a whole DataLoader using a rate code (spike counts)."""
     net.eval()
@@ -70,7 +102,11 @@ def batch_accuracy(loader, net, num_steps):
         for data, targets in loader:
             data, targets = data.to(device), targets.to(device)
             spike_data = spikegen.rate(data, num_steps=num_steps)
-            spk_rec, mem_rec = forward_pass(net, spike_data)
+            #spk_rec, mem_rec = forward_pass(net, spike_data)
+
+            spk_rec, _, mem_rec = forward_pass(net, spike_data)
+
+            #print ("lkasjdflkjasdf", mem_rec.shape)
             correct_spike_rate   += SF.accuracy_rate(spk_rec, targets) * spk_rec.size(1)
             total += spk_rec.size(1)
 
@@ -101,6 +137,7 @@ def batch_accuracy(loader, net, num_steps):
 
 
 def train_snn (net,
+               num_steps,
                num_epochs,
                train_loader,
                val_loader,
@@ -118,10 +155,13 @@ def train_snn (net,
 
     train_loss_hist, test_acc_hist = [], []
     counter = 0
+    #all_mem_rec = torch.empty(0,num_steps)
+    #print (all_mem_rec.shape)
+    all_mem_rec_list = []
 
     for epoch in range(num_epochs):
         #for data, targets in train_loader:
-        for data, targets in islice(train_loader, 5):
+        for data, targets in islice(train_loader, 10):
             
             #print("CHECK THIS SHAPE:", data.shape)
             data, targets = data.to(device), targets.to(device)
@@ -132,7 +172,12 @@ def train_snn (net,
             # 2) run the forward pass over time 
             net.train()
             #spk_rec = net(spike_data)
-            spk_rec, mem_rec = forward_pass(net, spike_data)
+            #spk_rec, mem_rec = forward_pass(net, spike_data)
+            spk_rec, _ , mem_rec = forward_pass(net, spike_data)
+            all_mem_rec_list.append(mem_rec)
+
+            #print ("asdasd", type(mem_rec))
+            #print ("asdasdasd", mem_rec.shape)
 
             # 3) compute the loss on the output spikes with loss_fn
             if decoding_method=="spike_rate":
@@ -181,10 +226,55 @@ def train_snn (net,
 
     print(f"Final test set accuracy: {final_acc * 100:.2f}%")
 
+    all_mem_rec_tensor = torch.stack(all_mem_rec_list)
+    #print ("kjashkjdflsadf", all_mem_rec_tensor.shape)
+
     return train_loss_hist, test_acc_hist
 
+class LIF_SNN(nn.Module):
+    def __init__(self, input_dim=64*64, hidden_dim=128, n_hidden=1, spike_grad=surrogate.fast_sigmoid(slope=25), beta=0.9, out_dim=6):
+        super().__init__()
+        self.input_dim = input_dim
+        self.hidden_dim = hidden_dim
+        self.n_hidden = n_hidden
+        self.out_dim = out_dim
+        self.beta = beta
+
+        self.flatten = nn.Flatten()
+        self.layers = nn.ModuleList()
 
 
+        if self.n_hidden == 0:
+            self.layers.append(nn.Linear(self.input_dim, self.out_dim))
+            self.layers.append (snn.Leaky(beta=self.beta, spike_grad=spike_grad, init_hidden=True))
+
+        else:
+            self.layers.append(nn.Linear(self.input_dim, self.hidden_dim))
+            self.layers.append (snn.Leaky(beta=self.beta, spike_grad=spike_grad, init_hidden=True))
+            for i in range(n_hidden-1):
+                self.layers.append(nn.Linear(self.hidden_dim, self.hidden_dim))
+                self.layers.append(snn.Leaky(beta=self.beta, spike_grad=spike_grad, init_hidden=True))
+                
+            self.layers.append(nn.Linear(self.hidden_dim, self.out_dim))
+            self.layers.append (snn.Leaky(beta=self.beta, spike_grad=spike_grad, init_hidden=True))
+
+    def forward(self, x):
+
+        all_spikes = []
+        all_mem_pot = []
+        x = self.flatten(x)
+        for layer in self.layers:
+            x = layer(x)
+            
+            if isinstance(layer, snn.Leaky):
+                all_mem_pot.append(layer.mem)
+                all_spikes.append(x)
+        
+        return x, all_spikes, all_mem_pot
+
+
+    
+        
 
 train_loader, val_loader, test_loader = load_data()
 
@@ -207,22 +297,26 @@ readouts = ["spike_rate", "max_membrane_potential", "mean_membrane_potential", "
 train_loss_hists = []
 test_acc_hists = []
 
+
+
 for readout in readouts:
 
+    """
     net = nn.Sequential(
         nn.Flatten(),
         nn.Linear(num_inputs, num_hidden),
         snn.Leaky(beta=beta, spike_grad=spike_grad, init_hidden=True),
         nn.Linear(num_hidden, num_outputs),
         snn.Leaky(beta=beta, spike_grad=spike_grad, init_hidden=True, output=True)
-    # TODO: fill in the layers
-
-
     ).to(device)
-
+    """
     #print(net)
 
-    train_loss_hist, test_acc_hist = train_snn(net=net,
+    net = LIF_SNN()
+
+    train_loss_hist, test_acc_hist = train_snn(
+            net=net,
+            num_steps=num_steps,
             num_epochs=1,
             train_loader=train_loader,
             val_loader=val_loader,
