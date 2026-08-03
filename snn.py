@@ -91,7 +91,17 @@ def forward_pass(net, spike_data):
 
     last_layer_idx = len(inter_mem_rec) - 1
 
-    return final_spikes, inter_spk_rec, inter_mem_rec[last_layer_idx]
+    
+    #print ("a", inter_spk_rec[0].shape)
+
+    mean_firing_rate_per_layer = []
+    for i in inter_spk_rec:
+        mean_firing_rate_per_layer.append(inter_spk_rec[i].float().mean().item())
+
+    #print (mean_firing_rate_per_layer)
+
+    #return final_spikes, inter_spk_rec, inter_mem_rec[last_layer_idx]
+    return final_spikes, mean_firing_rate_per_layer, inter_mem_rec[last_layer_idx]
 
 
 def batch_accuracy(loader, net, num_steps):
@@ -104,6 +114,7 @@ def batch_accuracy(loader, net, num_steps):
             spike_data = spikegen.rate(data, num_steps=num_steps)
             #spk_rec, mem_rec = forward_pass(net, spike_data)
 
+            #print ("************")
             spk_rec, _, mem_rec = forward_pass(net, spike_data)
 
             #print ("lkasjdflkjasdf", mem_rec.shape)
@@ -157,7 +168,8 @@ def train_snn (net,
     counter = 0
     #all_mem_rec = torch.empty(0,num_steps)
     #print (all_mem_rec.shape)
-    all_mem_rec_list = []
+    #all_mem_rec_list = []
+    mean_spike_rate_per_layer_hist = []
 
     for epoch in range(num_epochs):
         #for data, targets in train_loader:
@@ -173,8 +185,10 @@ def train_snn (net,
             net.train()
             #spk_rec = net(spike_data)
             #spk_rec, mem_rec = forward_pass(net, spike_data)
-            spk_rec, _ , mem_rec = forward_pass(net, spike_data)
-            all_mem_rec_list.append(mem_rec)
+            #print ("____")
+            spk_rec, mean_spike_rate , mem_rec = forward_pass(net, spike_data)
+            mean_spike_rate_per_layer_hist.append(mean_spike_rate)
+            #all_mem_rec_list.append(mem_rec)
 
             #print ("asdasd", type(mem_rec))
             #print ("asdasdasd", mem_rec.shape)
@@ -226,10 +240,10 @@ def train_snn (net,
 
     print(f"Final test set accuracy: {final_acc * 100:.2f}%")
 
-    all_mem_rec_tensor = torch.stack(all_mem_rec_list)
+    #all_mem_rec_tensor = torch.stack(all_mem_rec_list)
     #print ("kjashkjdflsadf", all_mem_rec_tensor.shape)
 
-    return train_loss_hist, test_acc_hist
+    return train_loss_hist, test_acc_hist, mean_spike_rate_per_layer_hist
 
 class LIF_SNN(nn.Module):
     def __init__(self, input_dim=64*64, hidden_dim=128, n_hidden=1, spike_grad=surrogate.fast_sigmoid(slope=25), beta=0.9, out_dim=6):
@@ -324,7 +338,7 @@ for readout in readouts:
     net.load_state_dict(initial_state)
     
 
-    train_loss_hist, test_acc_hist = train_snn(
+    train_loss_hist, test_acc_hist, _ = train_snn(
             net=net,
             num_steps=num_steps,
             num_epochs=1,
