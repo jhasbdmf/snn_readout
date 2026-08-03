@@ -311,6 +311,7 @@ readouts = ["spike_rate", "max_membrane_potential", "mean_membrane_potential", "
 
 train_loss_hists = []
 test_acc_hists = []
+mean_spike_rate_per_layer_hists = []
 
 
 
@@ -338,7 +339,7 @@ for readout in readouts:
     net.load_state_dict(initial_state)
     
 
-    train_loss_hist, test_acc_hist, _ = train_snn(
+    train_loss_hist, test_acc_hist, mean_spike_rate_per_layer_hist = train_snn(
             net=net,
             num_steps=num_steps,
             num_epochs=1,
@@ -350,14 +351,28 @@ for readout in readouts:
             betas=betas
             )
 
+
+    #mean_spike_rate_per_layer_to_plot = mean_spike_rate_per_layer_hist[:, [len(mean_spike_rate_per_layer_hist) // 3, 2*len(mean_spike_rate_per_layer_hist) // 3]]
+
+    hist_array = np.array(mean_spike_rate_per_layer_hist)
+
+    # 2. Now you can safely use NumPy's multi-dimensional advanced indexing!
+    idx1 = len(hist_array[0]) // 3
+    idx2 = 2 * len(hist_array[0]) // 3
+
+    mean_spike_rate_per_layer_to_plot = hist_array[:, [idx1, idx2]]
+    #mean_spike_rate_per_layer_to_plot.append(2 * mean_spike_rate_per_layer_hist[len(mean_spike_rate_per_layer_hist) // 3])
     train_loss_hists.append(train_loss_hist)
     test_acc_hists.append(test_acc_hist)
+    mean_spike_rate_per_layer_hists.append(mean_spike_rate_per_layer_to_plot)
+    print ("___", mean_spike_rate_per_layer_to_plot)
 
     
 
 
 plot_stats(train_loss_hists=train_loss_hists,
             test_acc_hists=test_acc_hists,
+            mean_spike_rate_per_layer_hists=mean_spike_rate_per_layer_hists,
             #run_names=run_names,
             run_names=readouts,
             num_inputs=num_inputs,

@@ -74,12 +74,213 @@ def load_data():
 
     return train_loader, val_loader, test_loader
 
-import os
-import matplotlib.pyplot as plt
-from datetime import datetime
+
 
 def plot_stats(train_loss_hists,  
                test_acc_hists,
+               mean_spike_rate_per_layer_hists,
+               run_names,    
+               num_inputs,
+               num_hidden,
+               num_steps,
+               beta,
+               slope,
+               lr,
+               betas):
+
+    # 1. Create the "figures" directory
+    os.makedirs("figures", exist_ok=True)
+
+    # 2. Timestamp and filename
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"figures/stats_{num_inputs}_{num_hidden}_{num_steps}_{beta}_{slope}_{lr}_{betas}_{timestamp}.png"
+    
+    hp_text = (
+        f"Input dim: {num_inputs}  |  Hidden dim: {num_hidden}  |  Steps: {num_steps}  |  "
+        f"Beta: {beta}  |  Slope: {slope}  |  LR: {lr}  |  Adam betas: {betas}"
+    )
+
+    # 3. Define colors for the 4 different runs/decoding methods
+    colors = ['tab:red', 'tab:blue', 'tab:green', 'tab:orange']
+
+    # Create a figure with 2 vertically stacked subplots, sharing the X-axis (Iterations)
+    fig, (ax1, ax3) = plt.subplots(nrows=2, ncols=1, figsize=(12, 10), sharex=True)
+
+    # Plotting loop for the runs
+    for i in range(len(train_loss_hists)):
+        color = colors[i % len(colors)]
+        run_label = run_names[i]
+        
+        # --- TOP PLOT: Loss & Accuracy ---
+        ax1.plot(train_loss_hists[i], color=color, 
+                 linestyle='-', linewidth=1.5, 
+                 label=f'{run_label} loss')
+        
+        if i == 0:
+            ax2 = ax1.twinx()
+
+        ax2.plot(test_acc_hists[i], color=color, 
+                linestyle='--', linewidth=2, 
+                label=f'{run_label} acc')
+
+        # --- BOTTOM PLOT: Mean Spike Rates per Layer ---
+        if isinstance(mean_spike_rate_per_layer_hists, list) and len(mean_spike_rate_per_layer_hists) == len(train_loss_hists):
+            layer_rates = mean_spike_rate_per_layer_hists[i]
+        else:
+            layer_rates = mean_spike_rate_per_layer_hists  
+        
+        if isinstance(layer_rates, (list, np.ndarray)) and len(layer_rates) > 0:
+            if isinstance(layer_rates[0], (list, np.ndarray, tuple)):
+                layer_streams = list(zip(*layer_rates))
+                
+                # Define line styles for layers: L0 = solid, L1 = dashed
+                line_styles = ['-', '--']
+                
+                for layer_idx, rates in enumerate(layer_streams):
+                    ls = line_styles[layer_idx % len(line_styles)]
+                    ax3.plot(rates, color=color, linestyle=ls, alpha=0.8, linewidth=1.5,
+                             label=f'{run_label} (L{layer_idx})')
+            else:
+                ax3.plot(layer_rates, color=color, linestyle='-', alpha=0.8,
+                         label=f'{run_label}')
+
+    # --- Formatting Top Subplot ---
+    ax1.set_ylabel('Loss', color='black', fontsize=12)
+    ax2.set_ylabel('Test Accuracy', color='black', fontsize=12)
+    ax1.set_title("Comparison of Runs: Training Loss, Test Accuracy, and Layer Spike Rates", fontsize=14)
+    ax1.grid(True, linestyle='--', alpha=0.5)
+    
+    lines, labels = ax1.get_legend_handles_labels()
+    lines2, labels2 = ax2.get_legend_handles_labels()
+    ax1.legend(lines + lines2, labels + labels2, loc='upper left', fontsize=8)
+
+    # --- Formatting Bottom Subplot ---
+    ax3.set_xlabel('Iteration', fontsize=12)
+    ax3.set_ylabel('Mean Spike Rate', fontsize=12)
+    ax3.grid(True, linestyle='--', alpha=0.5)
+    # Adjust legend columns so it fits nicely
+    ax3.legend(loc='upper left', fontsize=7, ncol=2)
+
+    # Make room at the bottom of the figure for the hyperparameter text box
+    fig.subplots_adjust(bottom=0.18)
+
+    # Hyperparams text box placed centrally at the bottom
+    fig.text(0.5, 0.02, hp_text, 
+            fontsize=9, 
+            verticalalignment='bottom', 
+            horizontalalignment='center', 
+            bbox=dict(boxstyle='round', facecolor='white', alpha=0.8))
+
+    fig.tight_layout(rect=[0, 0.05, 1, 1])
+    plt.savefig(filename)
+    print(f"Saved comparison results to: {filename}")
+    # plt.show()
+
+
+
+def plot_stats2(train_loss_hists,  
+               test_acc_hists,
+               mean_spike_rate_per_layer_hists,
+               run_names,    
+               num_inputs,
+               num_hidden,
+               num_steps,
+               beta,
+               slope,
+               lr,
+               betas):
+
+    # 1. Create the "figures" directory
+    os.makedirs("figures", exist_ok=True)
+
+    # 2. Timestamp and filename
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"figures/stats_{num_inputs}_{num_hidden}_{num_steps}_{beta}_{slope}_{lr}_{betas}_{timestamp}.png"
+    
+    hp_text = (
+        f"Input dim: {num_inputs}  |  Hidden dim: {num_hidden}  |  Steps: {num_steps}  |  "
+        f"Beta: {beta}  |  Slope: {slope}  |  LR: {lr}  |  Adam betas: {betas}"
+    )
+
+    # 3. Define colors for the 4 different runs
+    colors = ['tab:red', 'tab:blue', 'tab:green', 'tab:orange']
+
+    # Create a figure with 2 vertically stacked subplots, sharing the X-axis (Iterations)
+    fig, (ax1, ax3) = plt.subplots(nrows=2, ncols=1, figsize=(12, 10), sharex=True)
+
+    # Plotting loop for the runs
+    for i in range(len(train_loss_hists)):
+        color = colors[i % len(colors)]
+        run_label = run_names[i]
+        
+        # --- TOP PLOT: Loss & Accuracy ---
+        ax1.plot(train_loss_hists[i], color=color, 
+                 linestyle='-', linewidth=1.5, 
+                 label=f'{run_label} loss')
+        
+        if i == 0:
+            ax2 = ax1.twinx()
+
+        ax2.plot(test_acc_hists[i], color=color, 
+                linestyle='--', linewidth=2, 
+                label=f'{run_label} acc')
+
+        # --- BOTTOM PLOT: Mean Spike Rates per Layer ---
+        # Safely handle whether mean_spike_rate_per_layer_hist is a list of runs or a single structure
+        if isinstance(mean_spike_rate_per_layer_hists, list) and len(mean_spike_rate_per_layer_hists) == len(train_loss_hists):
+            layer_rates = mean_spike_rate_per_layer_hists[i]
+        else:
+            layer_rates = mean_spike_rate_per_layer_hists  
+        
+        # If format is: [[l0_t0, l1_t0], [l0_t1, l1_t1], ...]
+        if isinstance(layer_rates, (list, np.ndarray)) and len(layer_rates) > 0:
+            if isinstance(layer_rates[0], (list, np.ndarray, tuple)):
+                # Transpose so we can plot each layer independently across time
+                layer_streams = list(zip(*layer_rates))
+                
+                for layer_idx, rates in enumerate(layer_streams):
+                    ax3.plot(rates, color=color, linestyle='-', alpha=0.7,
+                             label=f'{run_label} (L{layer_idx})')
+            else:
+                # Fallback if it's a flat list of numbers
+                ax3.plot(layer_rates, color=color, linestyle='-', alpha=0.7,
+                         label=f'{run_label}')
+
+    # --- Formatting Top Subplot ---
+    ax1.set_ylabel('Loss', color='black', fontsize=12)
+    ax2.set_ylabel('Test Accuracy', color='black', fontsize=12)
+    ax1.set_title("Comparison of Runs: Training Loss, Test Accuracy, and Layer Spike Rates", fontsize=14)
+    ax1.grid(True, linestyle='--', alpha=0.5)
+    
+    lines, labels = ax1.get_legend_handles_labels()
+    lines2, labels2 = ax2.get_legend_handles_labels()
+    ax1.legend(lines + lines2, labels + labels2, loc='upper left', fontsize=8)
+
+    # --- Formatting Bottom Subplot ---
+    ax3.set_xlabel('Iteration', fontsize=12)
+    ax3.set_ylabel('Mean Spike Rate', fontsize=12)
+    ax3.grid(True, linestyle='--', alpha=0.5)
+    ax3.legend(loc='upper right', fontsize=7, ncol=2)
+
+    # Make room at the bottom of the figure for the hyperparameter text box
+    fig.subplots_adjust(bottom=0.18)
+
+    # Hyperparams text box placed centrally at the bottom
+    fig.text(0.5, 0.02, hp_text, 
+            fontsize=9, 
+            verticalalignment='bottom', 
+            horizontalalignment='center', 
+            bbox=dict(boxstyle='round', facecolor='white', alpha=0.8))
+
+    fig.tight_layout(rect=[0, 0.05, 1, 1])
+    plt.savefig(filename)
+    print(f"Saved comparison results to: {filename}")
+    # plt.show()
+
+
+def plot_stats1(train_loss_hists,  
+               test_acc_hists,
+               mean_spike_rate_per_layer_hist,
                run_names,    
                num_inputs,
                num_hidden,
