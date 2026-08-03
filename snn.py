@@ -36,13 +36,13 @@ from snntorch import utils
 from utils import load_data, plot_stats
 from itertools import islice
 
-
-
-
 # Reproducibility + device
 torch.manual_seed(42)
 device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
 print("Using device:", device)
+
+
+
 
 def forward_pass1(net, spike_data):
     """Run the network over time on a pre-encoded spike train.
@@ -299,6 +299,11 @@ test_acc_hists = []
 
 
 
+
+baseline_net = LIF_SNN()
+initial_state = baseline_net.state_dict()
+
+
 for readout in readouts:
 
     """
@@ -312,7 +317,11 @@ for readout in readouts:
     """
     #print(net)
 
-    net = LIF_SNN()
+    net = LIF_SNN().to(device)
+    
+    # 3. Load the exact same initial weights
+    net.load_state_dict(initial_state)
+    
 
     train_loss_hist, test_acc_hist = train_snn(
             net=net,
