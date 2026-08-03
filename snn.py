@@ -321,6 +321,7 @@ for readout in readouts:
             train_loader=train_loader,
             val_loader=val_loader,
             test_loader=test_loader,
+            decoding_method=readout,
             lr=lr,
             betas=betas
             )
