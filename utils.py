@@ -58,9 +58,12 @@ def load_data():
     test_dataset  = TensorDataset(test_x_t, test_y_t)
 
     # 4. Create DataLoaders
-    batch_size = 16
+    batch_size = 128
 
-    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+    g = torch.Generator()
+    g.manual_seed(42)
+
+    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, generator=g)
     val_loader   = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
     test_loader  = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
 
