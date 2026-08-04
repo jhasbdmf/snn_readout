@@ -89,6 +89,7 @@ def plot_stats(train_loss_hists,
                run_names,    
                num_inputs,
                num_hidden,
+               n_hidden_layers,
                num_steps,
                beta,
                activation_function,
@@ -104,7 +105,7 @@ def plot_stats(train_loss_hists,
     filename = f"figures/stats_{num_inputs}_{num_hidden}_{num_steps}_{beta}_{slope}_{lr}_{betas}_{timestamp}.png"
     
     hp_text = (
-        f"Input dim: {num_inputs}  |  Hidden dim: {num_hidden}  |  Steps: {num_steps}  |  "
+        f"Input dim: {num_inputs} | Hidden dim: {num_hidden} | Number of hidden layers: {n_hidden_layers} |  Steps: {num_steps}  |  "
         f"Beta: {beta}  | Surrogate activation func: {activation_function} | Slope: {slope}  |  LR: {lr}  |  Adam betas: {betas}"
     )
 
