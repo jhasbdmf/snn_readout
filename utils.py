@@ -102,7 +102,7 @@ def plot_stats(train_loss_hists,
 
     # 2. Timestamp and filename
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    filename = f"figures/stats_{num_inputs}_{num_hidden}_{num_steps}_{beta}_{slope}_{lr}_{betas}_{timestamp}.png"
+    filename = f"figures/stats_{num_inputs}_{num_hidden}_{n_hidden_layers}_{num_steps}_{activation_function}_{beta}_{slope}_{lr}_{betas}_{timestamp}.png"
     
     hp_text = (
         f"Input dim: {num_inputs} | Hidden dim: {num_hidden} | Number of hidden layers: {n_hidden_layers} |  Steps: {num_steps}  |  "
