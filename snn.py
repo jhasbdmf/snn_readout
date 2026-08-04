@@ -43,7 +43,7 @@ print("Using device:", device)
 
 
 
-
+'''
 def forward_pass_nn_sequential(net, spike_data):
     """Run the network over time on a pre-encoded spike train.
 
@@ -60,7 +60,7 @@ def forward_pass_nn_sequential(net, spike_data):
 
     return torch.stack(spk_rec), torch.stack(mem_rec)
     #return torch.stack(spk_rec)
-
+'''
 
 def forward_pass(net, spike_data):
     utils.reset(net)
@@ -104,30 +104,59 @@ def forward_pass(net, spike_data):
     return final_spikes, mean_firing_rate_per_layer, inter_mem_rec[last_layer_idx]
 
 
-def batch_accuracy(loader, net, num_steps):
+def batch_accuracy(loader, net, num_steps, decoding_method="spike_rate"):
     """Accuracy over a whole DataLoader using a rate code (spike counts)."""
     net.eval()
     total, correct_spike_rate, correct_max_mem, correct_mean_mem, correct_last_mem  = 0, 0, 0, 0, 0
+    total_loss = 0
+    total_samples = 0
+
     with torch.no_grad():
         for data, targets in loader:
+
+            
             data, targets = data.to(device), targets.to(device)
             spike_data = spikegen.rate(data, num_steps=num_steps)
             #spk_rec, mem_rec = forward_pass(net, spike_data)
 
             #print ("************")
             spk_rec, _, mem_rec = forward_pass(net, spike_data)
-
+            batch_size = spk_rec.size(1)
             #print ("lkasjdflkjasdf", mem_rec.shape)
-            correct_spike_rate   += SF.accuracy_rate(spk_rec, targets) * spk_rec.size(1)
+
+            spike_counts_logits = spk_rec.sum(dim=0)
+            correct_spike_rate   += SF.accuracy_rate(spk_rec, targets) * batch_size
             total += spk_rec.size(1)
 
             #max membrane potential decoding
-            predictions_max_mem = torch.argmax(torch.max(mem_rec, dim=0).values, dim=1)
+            logits_max_mem = torch.max(mem_rec, dim=0).values
+            predictions_max_mem = torch.argmax(logits_max_mem, dim=1)
+            #predictions_max_mem = torch.argmax(torch.max(mem_rec, dim=0).values, dim=1)
+
+
             #mean membrane potential decoding
-            predictions_mean_mem = torch.argmax(torch.mean(mem_rec, dim=0), dim=1)
+            logits_mean_mem = torch.mean(mem_rec, dim=0)
+            predictions_mean_mem = torch.argmax(logits_mean_mem, dim=1)
+            #predictions_mean_mem = torch.argmax(torch.mean(mem_rec, dim=0), dim=1)
 
             #last time step membrane potential decoding
-            predictions_last_mem = torch.argmax(mem_rec[-1], dim=1)
+            logits_last_mem = mem_rec[-1]
+            predictions_last_mem = torch.argmax(logits_last_mem, dim=1)
+
+            criterion = nn.CrossEntropyLoss()
+
+            if decoding_method=="spike_rate":
+                total_loss += criterion(spike_counts_logits, targets).item() * batch_size
+            elif decoding_method=="max_membrane_potential":
+                total_loss += criterion (logits_max_mem, targets).item() * batch_size
+            elif decoding_method=="mean_membrane_potential":
+                total_loss += criterion (logits_mean_mem, targets).item() * batch_size
+            elif decoding_method=="last_membrane_potential":
+                total_loss += criterion (logits_last_mem, targets).item() * batch_size
+
+            total_samples += batch_size
+
+
 
             correct_max_mem += (predictions_max_mem == targets).sum().item()
             correct_mean_mem += (predictions_mean_mem == targets).sum().item()
@@ -142,8 +171,10 @@ def batch_accuracy(loader, net, num_steps):
             acc_mean_mem = correct_mean_mem / total
             acc_last_mem = correct_last_mem / total
 
+    total_loss /= total_samples
 
-    return acc_spike_rate, acc_max_mem, acc_mean_mem, acc_last_mem
+
+    return acc_spike_rate, acc_max_mem, acc_mean_mem, acc_last_mem, total_loss
 
 
 
@@ -164,7 +195,7 @@ def train_snn (net,
     optimizer = torch.optim.Adam(net.parameters(), lr=lr, betas=betas)
    
 
-    train_loss_hist, test_acc_hist = [], []
+    train_loss_hist, val_loss_hist, test_acc_hist = [], [], []
     counter = 0
     #all_mem_rec = torch.empty(0,num_steps)
     #print (all_mem_rec.shape)
@@ -225,7 +256,9 @@ def train_snn (net,
 
             train_loss_hist.append(loss.item())
 
-            test_acc_spike_rate, test_acc_max_mem, test_acc_mean_mem, test_acc_last_mem = batch_accuracy(test_loader, net, num_steps)
+            test_acc_spike_rate, test_acc_max_mem, test_acc_mean_mem, test_acc_last_mem, batch_val_loss = batch_accuracy(val_loader, net, num_steps, decoding_method)
+
+            val_loss_hist.append(batch_val_loss)
 
             if decoding_method=="spike_rate":
                 test_acc_hist.append(test_acc_spike_rate)
@@ -248,14 +281,14 @@ def train_snn (net,
             counter += 1
 
     # Final test accuracy and a plot of the training loss
-    final_acc, _, _ , _ = batch_accuracy(test_loader, net, num_steps)
+    final_acc, _, _ , _, _ = batch_accuracy(test_loader, net, num_steps, decoding_method)
 
     print(f"Final test set accuracy: {final_acc * 100:.2f}%")
 
     #all_mem_rec_tensor = torch.stack(all_mem_rec_list)
     #print ("kjashkjdflsadf", all_mem_rec_tensor.shape)
 
-    return train_loss_hist, test_acc_hist, mean_spike_rate_per_layer_hist, gradient_norm_per_layer_hist
+    return train_loss_hist, val_loss_hist, test_acc_hist, mean_spike_rate_per_layer_hist, gradient_norm_per_layer_hist
 
 class LIF_SNN(nn.Module):
     def __init__(self, input_dim=64*64, hidden_dim=128, n_hidden=1, spike_grad=surrogate.fast_sigmoid(slope=25), beta=0.9, out_dim=6):
@@ -322,6 +355,7 @@ readouts = ["spike_rate", "max_membrane_potential", "mean_membrane_potential", "
 
 
 train_loss_hists = []
+val_loss_hists = []
 test_acc_hists = []
 mean_spike_rate_per_layer_hists = []
 grad_norm_per_layer_hists = []
@@ -352,7 +386,7 @@ for readout in readouts:
     net.load_state_dict(initial_state)
     
 
-    train_loss_hist, test_acc_hist, mean_spike_rate_per_layer_hist, gradient_norm_per_layer_hist = train_snn(
+    train_loss_hist, val_loss_hist, test_acc_hist, mean_spike_rate_per_layer_hist, gradient_norm_per_layer_hist = train_snn(
             net=net,
             num_steps=num_steps,
             num_epochs=1,
@@ -379,8 +413,11 @@ for readout in readouts:
 
     mean_spike_rate_per_layer_to_plot = spike_hist_array[:, [batch_index_to_visualize1, batch_index_to_visualize2]]
     grad_norm_per_layer_to_plot = grad_hist_array[:, [batch_index_to_visualize1, batch_index_to_visualize2]]
+
+    print (val_loss_hist)
  
     train_loss_hists.append(train_loss_hist)
+    val_loss_hists.append(val_loss_hist)
     test_acc_hists.append(test_acc_hist)
     mean_spike_rate_per_layer_hists.append(mean_spike_rate_per_layer_to_plot)
     grad_norm_per_layer_hists.append(grad_norm_per_layer_to_plot)
