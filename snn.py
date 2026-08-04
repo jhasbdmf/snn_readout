@@ -205,7 +205,7 @@ def train_snn (net,
 
     for epoch in range(num_epochs):
         #for data, targets in train_loader:
-        for data, targets in islice(train_loader, 1):
+        for data, targets in islice(train_loader, 2):
             
             #print("CHECK THIS SHAPE:", data.shape)
             data, targets = data.to(device), targets.to(device)
@@ -348,7 +348,7 @@ beta      = 0.9
 slope = 25         # snn.Leaky MEMBRANE decay (NOT the surrogate steepness!)
 spike_grad = surrogate.fast_sigmoid(slope=slope)   # slope = the lecture's beta
 
-print (type(spike_grad).__name__)
+#print (spike_grad.__qualname__.split('.')[0])
 
 lr=1e-5
 betas = (0.9, 0.999)
@@ -441,7 +441,7 @@ plot_stats(train_loss_hists=train_loss_hists,
             num_hidden=num_hidden,
             num_steps=num_steps,
             beta=beta,
-            #activation_function=type(spike_grad).__name__,
+            activation_function=spike_grad.__qualname__.split('.')[0],
             slope=slope,
             lr=lr,
             betas=betas,
