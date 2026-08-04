@@ -214,7 +214,7 @@ def train_snn (net,
             current_gradient_per_layer_norm = []
             for layer in net.layers:
                 if isinstance(layer, nn.Linear):
-                    current_gradient_per_layer_norm.append(layer.weight.grad.norm)
+                    current_gradient_per_layer_norm.append(layer.weight.grad.norm().item())
 
                     #print ("***", torch.tensor(layer.weight.grad).shape)
                 #layer_grad_norm = np.linalg.norm(layer.weight.grad)
@@ -324,7 +324,7 @@ readouts = ["spike_rate", "max_membrane_potential", "mean_membrane_potential", "
 train_loss_hists = []
 test_acc_hists = []
 mean_spike_rate_per_layer_hists = []
-grad_norm_rate_per_layer_hists = []
+grad_norm_per_layer_hists = []
 
 
 
@@ -373,7 +373,7 @@ for readout in readouts:
     spike_hist_array = np.array(mean_spike_rate_per_layer_hist)
     grad_hist_array = np.array(gradient_norm_per_layer_hist)
 
-    # choose 2 layer whose mean firing rate is to be plotted
+    # choose 2 layers whose mean firing rate is to be plotted
     batch_index_to_visualize1 = len(spike_hist_array[0]) // 3
     batch_index_to_visualize2 = 2 * len(spike_hist_array[0]) // 3
 
@@ -383,8 +383,8 @@ for readout in readouts:
     train_loss_hists.append(train_loss_hist)
     test_acc_hists.append(test_acc_hist)
     mean_spike_rate_per_layer_hists.append(mean_spike_rate_per_layer_to_plot)
-    grad_norm_rate_per_layer_hists.append(grad_norm_per_layer_to_plot)
-    print (grad_norm_per_layer_to_plot.shape)
+    grad_norm_per_layer_hists.append(grad_norm_per_layer_to_plot)
+    #print (grad_norm_per_layer_to_plot.shape)
   
 
     
@@ -393,6 +393,7 @@ for readout in readouts:
 plot_stats(train_loss_hists=train_loss_hists,
             test_acc_hists=test_acc_hists,
             mean_spike_rate_per_layer_hists=mean_spike_rate_per_layer_hists,
+            grad_norm_per_layer_hists=grad_norm_per_layer_hists,
             layer_indices=[batch_index_to_visualize1, batch_index_to_visualize2],
             #run_names=run_names,
             run_names=readouts,
