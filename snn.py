@@ -170,6 +170,7 @@ def train_snn (net,
     #print (all_mem_rec.shape)
     #all_mem_rec_list = []
     mean_spike_rate_per_layer_hist = []
+    gradient_norm_per_layer_hist = []
 
     for epoch in range(num_epochs):
         #for data, targets in train_loader:
@@ -209,6 +210,17 @@ def train_snn (net,
             # 4) backward pass (surrogate gradients kick in here) + weight update
             optimizer.zero_grad()
             loss.backward()
+
+            current_gradient_per_layer_norm = []
+            for layer in net.layers:
+                if isinstance(layer, nn.Linear):
+                    current_gradient_per_layer_norm.append(layer.weight.grad.norm)
+
+                    #print ("***", torch.tensor(layer.weight.grad).shape)
+                #layer_grad_norm = np.linalg.norm(layer.weight.grad)
+
+            gradient_norm_per_layer_hist.append(current_gradient_per_layer_norm)
+
             optimizer.step()
 
             train_loss_hist.append(loss.item())
@@ -243,7 +255,7 @@ def train_snn (net,
     #all_mem_rec_tensor = torch.stack(all_mem_rec_list)
     #print ("kjashkjdflsadf", all_mem_rec_tensor.shape)
 
-    return train_loss_hist, test_acc_hist, mean_spike_rate_per_layer_hist
+    return train_loss_hist, test_acc_hist, mean_spike_rate_per_layer_hist, gradient_norm_per_layer_hist
 
 class LIF_SNN(nn.Module):
     def __init__(self, input_dim=64*64, hidden_dim=128, n_hidden=1, spike_grad=surrogate.fast_sigmoid(slope=25), beta=0.9, out_dim=6):
@@ -312,6 +324,7 @@ readouts = ["spike_rate", "max_membrane_potential", "mean_membrane_potential", "
 train_loss_hists = []
 test_acc_hists = []
 mean_spike_rate_per_layer_hists = []
+grad_norm_rate_per_layer_hists = []
 
 
 
@@ -339,7 +352,7 @@ for readout in readouts:
     net.load_state_dict(initial_state)
     
 
-    train_loss_hist, test_acc_hist, mean_spike_rate_per_layer_hist = train_snn(
+    train_loss_hist, test_acc_hist, mean_spike_rate_per_layer_hist, gradient_norm_per_layer_hist = train_snn(
             net=net,
             num_steps=num_steps,
             num_epochs=1,
@@ -351,21 +364,28 @@ for readout in readouts:
             betas=betas
             )
 
+    #print (len(gradient_norm_per_layer_hist))
+    #print (len(gradient_norm_per_layer_hist[0]))
+
 
     #mean_spike_rate_per_layer_to_plot = mean_spike_rate_per_layer_hist[:, [len(mean_spike_rate_per_layer_hist) // 3, 2*len(mean_spike_rate_per_layer_hist) // 3]]
 
-    hist_array = np.array(mean_spike_rate_per_layer_hist)
+    spike_hist_array = np.array(mean_spike_rate_per_layer_hist)
+    grad_hist_array = np.array(gradient_norm_per_layer_hist)
 
     # choose 2 layer whose mean firing rate is to be plotted
-    idx1 = len(hist_array[0]) // 3
-    idx2 = 2 * len(hist_array[0]) // 3
+    batch_index_to_visualize1 = len(spike_hist_array[0]) // 3
+    batch_index_to_visualize2 = 2 * len(spike_hist_array[0]) // 3
 
-    mean_spike_rate_per_layer_to_plot = hist_array[:, [idx1, idx2]]
-    #mean_spike_rate_per_layer_to_plot.append(2 * mean_spike_rate_per_layer_hist[len(mean_spike_rate_per_layer_hist) // 3])
+    mean_spike_rate_per_layer_to_plot = spike_hist_array[:, [batch_index_to_visualize1, batch_index_to_visualize2]]
+    grad_norm_per_layer_to_plot = grad_hist_array[:, [batch_index_to_visualize1, batch_index_to_visualize2]]
+ 
     train_loss_hists.append(train_loss_hist)
     test_acc_hists.append(test_acc_hist)
     mean_spike_rate_per_layer_hists.append(mean_spike_rate_per_layer_to_plot)
-    #print ("___", mean_spike_rate_per_layer_to_plot)
+    grad_norm_rate_per_layer_hists.append(grad_norm_per_layer_to_plot)
+    print (grad_norm_per_layer_to_plot.shape)
+  
 
     
 
@@ -373,7 +393,7 @@ for readout in readouts:
 plot_stats(train_loss_hists=train_loss_hists,
             test_acc_hists=test_acc_hists,
             mean_spike_rate_per_layer_hists=mean_spike_rate_per_layer_hists,
-            layer_indices=[idx1, idx2],
+            layer_indices=[batch_index_to_visualize1, batch_index_to_visualize2],
             #run_names=run_names,
             run_names=readouts,
             num_inputs=num_inputs,
