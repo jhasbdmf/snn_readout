@@ -79,6 +79,7 @@ def load_data():
 def plot_stats(train_loss_hists,  
                test_acc_hists,
                mean_spike_rate_per_layer_hists,
+               layer_indices,
                run_names,    
                num_inputs,
                num_hidden,
@@ -139,7 +140,7 @@ def plot_stats(train_loss_hists,
                 for layer_idx, rates in enumerate(layer_streams):
                     ls = line_styles[layer_idx % len(line_styles)]
                     ax3.plot(rates, color=color, linestyle=ls, alpha=0.8, linewidth=1.5,
-                             label=f'{run_label} (L{layer_idx})')
+                             label=f'{run_label} (L{layer_indices[layer_idx]})')
             else:
                 ax3.plot(layer_rates, color=color, linestyle='-', alpha=0.8,
                          label=f'{run_label}')

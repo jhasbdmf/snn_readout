@@ -44,7 +44,7 @@ print("Using device:", device)
 
 
 
-def forward_pass1(net, spike_data):
+def forward_pass_nn_sequential(net, spike_data):
     """Run the network over time on a pre-encoded spike train.
 
     spike_data: [num_steps, batch, 1, 28, 28] (from spikegen.rate)
@@ -294,8 +294,8 @@ train_loader, val_loader, test_loader = load_data()
 
 # Network + simulation parameters
 num_inputs  = 64 * 64
-num_hidden  = 64
-n_hidden = 1
+num_hidden  = 16
+n_hidden = 4
 num_outputs = 6
 
 num_steps = 25          # timesteps of the rate-coded input (raise for Colab GPU)
@@ -356,7 +356,7 @@ for readout in readouts:
 
     hist_array = np.array(mean_spike_rate_per_layer_hist)
 
-    # 2. Now you can safely use NumPy's multi-dimensional advanced indexing!
+    # choose 2 layer whose mean firing rate is to be plotted
     idx1 = len(hist_array[0]) // 3
     idx2 = 2 * len(hist_array[0]) // 3
 
@@ -365,7 +365,7 @@ for readout in readouts:
     train_loss_hists.append(train_loss_hist)
     test_acc_hists.append(test_acc_hist)
     mean_spike_rate_per_layer_hists.append(mean_spike_rate_per_layer_to_plot)
-    print ("___", mean_spike_rate_per_layer_to_plot)
+    #print ("___", mean_spike_rate_per_layer_to_plot)
 
     
 
@@ -373,6 +373,7 @@ for readout in readouts:
 plot_stats(train_loss_hists=train_loss_hists,
             test_acc_hists=test_acc_hists,
             mean_spike_rate_per_layer_hists=mean_spike_rate_per_layer_hists,
+            layer_indices=[idx1, idx2],
             #run_names=run_names,
             run_names=readouts,
             num_inputs=num_inputs,
