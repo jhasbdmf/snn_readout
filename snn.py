@@ -204,8 +204,8 @@ def train_snn (net,
     gradient_norm_per_layer_hist = []
 
     for epoch in range(num_epochs):
-        #for data, targets in train_loader:
-        for data, targets in islice(train_loader, 2):
+        for data, targets in train_loader:
+        #for data, targets in islice(train_loader, 2):
             
             #print("CHECK THIS SHAPE:", data.shape)
             data, targets = data.to(device), targets.to(device)
@@ -382,6 +382,8 @@ for n_hidden in ns_hidden:
 
 
             for readout in readouts:
+
+                print (f"Tesing {readout} readout")
 
                 """
                 net = nn.Sequential(
