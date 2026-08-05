@@ -177,8 +177,8 @@ def plot_stats(train_loss_hists,
                              label=f'{run_label}')
 
     # --- Formatting Subplot 1 (Losses) ---
-    ax_loss.set_ylabel('Loss', fontsize=12)
-    ax_loss.set_title("Comparison of Runs: Losses, Val Accuracy, Layer Spike Rates, and Gradient Norms", fontsize=13)
+    ax_loss.set_ylabel('Cross Entropy Loss', fontsize=12)
+    ax_loss.set_title("Comparison of Readouts: Losses, Val Accuracy, Layer Spike Rates, and Gradient Norms", fontsize=13)
     ax_loss.grid(True, linestyle='--', alpha=0.5)
     ax_loss.legend(loc='lower left', fontsize=6, ncol=2)
 
