@@ -339,8 +339,10 @@ train_loader, val_loader, test_loader = load_data()
 
 # Network + simulation parameters
 num_inputs  = 64 * 64
-num_hidden  = 16
-n_hidden = 4
+#hidden_dim  = 128
+hidden_dims = [64, 128]
+#n_hidden = 1
+ns_hidden = [2, 4]
 num_outputs = 6
 
 num_steps = 25          # timesteps of the rate-coded input (raise for Colab GPU)
@@ -350,102 +352,114 @@ spike_grad = surrogate.fast_sigmoid(slope=slope)   # slope = the lecture's beta
 
 #print (spike_grad.__qualname__.split('.')[0])
 
-lr=1e-5
+#lr=3e-5
+learning_rates = [1e-5, 5e-5, 1e-4]
 betas = (0.9, 0.999)
 
-readouts = ["spike_rate", "max_membrane_potential", "mean_membrane_potential", "last_membrane_potential"]
+readouts = ["max_membrane_potential", "mean_membrane_potential", "last_membrane_potential", "spike_rate"]
 
 
-train_loss_hists = []
-val_loss_hists = []
-test_acc_hists = []
-mean_spike_rate_per_layer_hists = []
-grad_norm_per_layer_hists = []
+for n_hidden in ns_hidden:
+    for hidden_dim in hidden_dims:
+
+        baseline_net = LIF_SNN(hidden_dim=hidden_dim, n_hidden=n_hidden)
+        initial_state = baseline_net.state_dict()
+
+
+        for lr in learning_rates: 
+
+            train_loss_hists = []
+            val_loss_hists = []
+            test_acc_hists = []
+            mean_spike_rate_per_layer_hists = []
+            grad_norm_per_layer_hists = []
 
 
 
-
-baseline_net = LIF_SNN(hidden_dim=num_hidden, n_hidden=n_hidden)
-initial_state = baseline_net.state_dict()
-
-
-for readout in readouts:
-
-    """
-    net = nn.Sequential(
-        nn.Flatten(),
-        nn.Linear(num_inputs, num_hidden),
-        snn.Leaky(beta=beta, spike_grad=spike_grad, init_hidden=True),
-        nn.Linear(num_hidden, num_outputs),
-        snn.Leaky(beta=beta, spike_grad=spike_grad, init_hidden=True, output=True)
-    ).to(device)
-    """
-    #print(net)
-
-    net = LIF_SNN(hidden_dim=num_hidden, n_hidden=n_hidden).to(device)
-    
-    # 3. Load the exact same initial weights
-    net.load_state_dict(initial_state)
-    
-
-    train_loss_hist, val_loss_hist, test_acc_hist, mean_spike_rate_per_layer_hist, gradient_norm_per_layer_hist = train_snn(
-            net=net,
-            num_steps=num_steps,
-            num_epochs=1,
-            train_loader=train_loader,
-            val_loader=val_loader,
-            test_loader=test_loader,
-            decoding_method=readout,
-            lr=lr,
-            betas=betas
-            )
-
-    #print (len(gradient_norm_per_layer_hist))
-    #print (len(gradient_norm_per_layer_hist[0]))
+            print ("_"*50)
+            print (f"Testing n_hidden {n_hidden}, hidden_dim {hidden_dim}, lr {lr}")
+            
 
 
-    #mean_spike_rate_per_layer_to_plot = mean_spike_rate_per_layer_hist[:, [len(mean_spike_rate_per_layer_hist) // 3, 2*len(mean_spike_rate_per_layer_hist) // 3]]
+            for readout in readouts:
 
-    spike_hist_array = np.array(mean_spike_rate_per_layer_hist)
-    grad_hist_array = np.array(gradient_norm_per_layer_hist)
+                """
+                net = nn.Sequential(
+                    nn.Flatten(),
+                    nn.Linear(num_inputs, num_hidden),
+                    snn.Leaky(beta=beta, spike_grad=spike_grad, init_hidden=True),
+                    nn.Linear(num_hidden, num_outputs),
+                    snn.Leaky(beta=beta, spike_grad=spike_grad, init_hidden=True, output=True)
+                ).to(device)
+                """
+                #print(net)
 
-    # choose 2 layers whose mean firing rate is to be plotted
-    batch_index_to_visualize1 = len(spike_hist_array[0]) // 3
-    batch_index_to_visualize2 = 2 * len(spike_hist_array[0]) // 3
+                net = LIF_SNN(hidden_dim=hidden_dim, n_hidden=n_hidden).to(device)
+                
+                # 3. Load the exact same initial weights
+                net.load_state_dict(initial_state)
+                
 
-    mean_spike_rate_per_layer_to_plot = spike_hist_array[:, [batch_index_to_visualize1, batch_index_to_visualize2]]
-    grad_norm_per_layer_to_plot = grad_hist_array[:, [batch_index_to_visualize1, batch_index_to_visualize2]]
+                train_loss_hist, val_loss_hist, test_acc_hist, mean_spike_rate_per_layer_hist, gradient_norm_per_layer_hist = train_snn(
+                        net=net,
+                        num_steps=num_steps,
+                        num_epochs=1,
+                        train_loader=train_loader,
+                        val_loader=val_loader,
+                        test_loader=test_loader,
+                        decoding_method=readout,
+                        lr=lr,
+                        betas=betas
+                        )
 
-    print (val_loss_hist)
- 
-    train_loss_hists.append(train_loss_hist)
-    val_loss_hists.append(val_loss_hist)
-    test_acc_hists.append(test_acc_hist)
-    mean_spike_rate_per_layer_hists.append(mean_spike_rate_per_layer_to_plot)
-    grad_norm_per_layer_hists.append(grad_norm_per_layer_to_plot)
-    #print (grad_norm_per_layer_to_plot.shape)
-  
-
-    
-
-
-plot_stats(train_loss_hists=train_loss_hists,
-           val_loss_hists=val_loss_hists,
-            test_acc_hists=test_acc_hists,
-            mean_spike_rate_per_layer_hists=mean_spike_rate_per_layer_hists,
-            grad_norm_per_layer_hists=grad_norm_per_layer_hists,
-            layer_indices=[batch_index_to_visualize1, batch_index_to_visualize2],
-            #run_names=run_names,
-            run_names=readouts,
-            num_inputs=num_inputs,
-            num_hidden=num_hidden,
-            n_hidden_layers = n_hidden,
-            num_steps=num_steps,
-            beta=beta,
-            activation_function=spike_grad.__qualname__.split('.')[0],
-            slope=slope,
-            lr=lr,
-            betas=betas,
-            )
+                #print (len(gradient_norm_per_layer_hist))
+                #print (len(gradient_norm_per_layer_hist[0]))
 
 
+                #mean_spike_rate_per_layer_to_plot = mean_spike_rate_per_layer_hist[:, [len(mean_spike_rate_per_layer_hist) // 3, 2*len(mean_spike_rate_per_layer_hist) // 3]]
+
+                spike_hist_array = np.array(mean_spike_rate_per_layer_hist)
+                grad_hist_array = np.array(gradient_norm_per_layer_hist)
+
+                # choose 2 layers whose mean firing rate is to be plotted
+                batch_index_to_visualize1 = len(spike_hist_array[0]) // 3
+                batch_index_to_visualize2 = 2 * len(spike_hist_array[0]) // 3
+
+                mean_spike_rate_per_layer_to_plot = spike_hist_array[:, [batch_index_to_visualize1, batch_index_to_visualize2]]
+                grad_norm_per_layer_to_plot = grad_hist_array[:, [batch_index_to_visualize1, batch_index_to_visualize2]]
+
+                #print (val_loss_hist)
+            
+                train_loss_hists.append(train_loss_hist)
+                val_loss_hists.append(val_loss_hist)
+                test_acc_hists.append(test_acc_hist)
+                mean_spike_rate_per_layer_hists.append(mean_spike_rate_per_layer_to_plot)
+                grad_norm_per_layer_hists.append(grad_norm_per_layer_to_plot)
+                #print (grad_norm_per_layer_to_plot.shape)
+            
+
+                
+            del net
+            if device.type == 'cuda':
+                torch.cuda.empty_cache()
+
+            plot_stats(train_loss_hists=train_loss_hists,
+                    val_loss_hists=val_loss_hists,
+                        test_acc_hists=test_acc_hists,
+                        mean_spike_rate_per_layer_hists=mean_spike_rate_per_layer_hists,
+                        grad_norm_per_layer_hists=grad_norm_per_layer_hists,
+                        layer_indices=[batch_index_to_visualize1, batch_index_to_visualize2],
+                        #run_names=run_names,
+                        run_names=readouts,
+                        num_inputs=num_inputs,
+                        num_hidden=hidden_dim,
+                        n_hidden_layers = n_hidden,
+                        num_steps=num_steps,
+                        beta=beta,
+                        activation_function=spike_grad.__qualname__.split('.')[0],
+                        slope=slope,
+                        lr=lr,
+                        betas=betas,
+                        )
+
+            
