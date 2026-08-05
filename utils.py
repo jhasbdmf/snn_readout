@@ -9,7 +9,7 @@ from datetime import datetime
 
 
 
-def load_data():
+def load_data(batch_size):
 
     train_x = np.load(f'dataset/x_train.npy') 
     train_y = np.load(f'dataset/y_train.npy')
@@ -58,7 +58,7 @@ def load_data():
     test_dataset  = TensorDataset(test_x_t, test_y_t)
 
     # 4. Create DataLoaders
-    batch_size = 128
+    #batch_size = 256
 
     g = torch.Generator()
     g.manual_seed(42)
@@ -100,7 +100,9 @@ def plot_stats(train_loss_hists,
                activation_function,
                slope,
                lr,
-               betas):
+               betas,
+               batch_size,
+               num_epochs):
 
     # 1. Create the "figures" directory
     os.makedirs("figures", exist_ok=True)
@@ -110,8 +112,8 @@ def plot_stats(train_loss_hists,
     filename = f"figures/stats_{num_inputs}_{num_hidden}_{n_hidden_layers}_{num_steps}_{activation_function}_{beta}_{slope}_{lr}_{betas}_{timestamp}.png"
     
     hp_text = (
-        f"Input dim: {num_inputs} | Hidden dim: {num_hidden} | Number of hidden layers: {n_hidden_layers} |  Steps: {num_steps}  |  "
-        f"Beta: {beta}  | Surrogate activation func: {activation_function} | Slope: {slope}  |  LR: {lr}  |  Adam betas: {betas}"
+        f"Input dim: {num_inputs} | Hidden dim: {num_hidden} | N of hidden layers: {n_hidden_layers} |  Steps: {num_steps}  |  "
+        f"Beta: {beta}  | Surrogate act func: {activation_function} | Slope: {slope}  |  LR: {lr}  |  Adam betas: {betas} |  Batch size: {batch_size} |  N epochs: {num_epochs}"
     )
 
     # 3. Define colors for the 4 different runs/decoding methods

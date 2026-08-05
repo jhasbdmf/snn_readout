@@ -333,9 +333,10 @@ class LIF_SNN(nn.Module):
 
 
     
-        
+batch_size = 256        
+num_epochs = 2
 
-train_loader, val_loader, test_loader = load_data()
+train_loader, val_loader, test_loader = load_data(batch_size=batch_size)
 
 # Network + simulation parameters
 num_inputs  = 64 * 64
@@ -405,7 +406,7 @@ for n_hidden in ns_hidden:
                 train_loss_hist, val_loss_hist, test_acc_hist, mean_spike_rate_per_layer_hist, gradient_norm_per_layer_hist = train_snn(
                         net=net,
                         num_steps=num_steps,
-                        num_epochs=1,
+                        num_epochs=num_epochs,
                         train_loader=train_loader,
                         val_loader=val_loader,
                         test_loader=test_loader,
@@ -446,7 +447,7 @@ for n_hidden in ns_hidden:
                 torch.cuda.empty_cache()
 
             plot_stats(train_loss_hists=train_loss_hists,
-                    val_loss_hists=val_loss_hists,
+                        val_loss_hists=val_loss_hists,
                         test_acc_hists=test_acc_hists,
                         mean_spike_rate_per_layer_hists=mean_spike_rate_per_layer_hists,
                         grad_norm_per_layer_hists=grad_norm_per_layer_hists,
@@ -462,6 +463,8 @@ for n_hidden in ns_hidden:
                         slope=slope,
                         lr=lr,
                         betas=betas,
+                        batch_size = batch_size,
+                        num_epochs = num_epochs
                         )
 
             
